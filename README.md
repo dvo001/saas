@@ -1,8 +1,28 @@
-# Laufanlaesse
+# Sportanlaesse
 
-Lokale LAMP-Webapplikation fuer unterschiedliche Laufanlaesse mit Teilnehmererfassung,
-konfigurierbaren Qualifikationslaeufen und Finalplaetzen, Finalzeiten, Ranglisten,
-Laufzetteln und CSV-Export.
+Mandantenfaehige LAMP-Webapplikation fuer Sportanlaesse. Die Plattform ist fuer
+mehrere Veranstalter/Organisationen und mehrere Sportarten vorbereitet, darunter
+Laufanlaesse, Fussballturniere, Leichtathletik, Judo und freie Formate.
+
+Der Lauf-Modus enthaelt bereits die vollstaendige Zeitmessungslogik mit
+Teilnehmererfassung, Qualifikationslaeufen, Finalplaetzen, Finalzeiten,
+Ranglisten, Laufzetteln und CSV-Export. Weitere Sportarten koennen als eigene
+Wertungsmodule auf dem SaaS-Kern aufgebaut werden.
+
+## SaaS- und Multi-Sport-Kern
+
+- Organisationen/Mandanten mit eigener Datenisolation
+- Benutzer mit Login und Mitgliedschaft pro Organisation
+- Rollen-Grundlage: `owner`, `admin`, `operator`, `viewer`
+- Plan-/Subscription-Grundlage: `starter`, `club`, `pro`
+- Einladungs-, Subscription- und Audit-Log-Tabellen fuer Betrieb, Support und Compliance
+- CSRF-Schutz fuer POST-Formulare und gehaertete Session-Cookies
+- Team-Einladungen per Token-Link, Passwort-Reset-Grundflow und Installations-Claim fuer migrierte Daten
+- Rollen- und Planlimit-Durchsetzung in den Schreibfluesse
+- Sportartenkatalog: Lauf, Fussballturnier, Leichtathletik, Judo, andere Sportart
+- Event-Metadaten je Sportart mit Wertungsmodi: Zeitwertung, Turnier, Punkte, K.-o.-Raster, freie Wertung
+- bestehende Laufwertung nur fuer zeitbasierte Anlaesse sichtbar
+- generische Multi-Sport-Erfassung fuer Teams/Starter, Disziplinen, Begegnungen/Kaempfe und Punkte-/Rangresultate
 
 ## Systemvoraussetzungen
 
@@ -58,6 +78,15 @@ Bei einer bestehenden Installation einmalig die Anlass-Konfiguration ergaenzen:
 mysql -u sportlauf_user -p sportlauf < database/migrations/20260706_event_configuration.sql
 ```
 
+Fuer den SaaS-/Multi-Sport-Umbau bestehende Installationen anschliessend migrieren:
+
+```bash
+mysql -u sportlauf_user -p sportlauf < database/migrations/20260809_saas_multisport.sql
+```
+
+Bei bestehenden Daten ohne Benutzer kann die erste Person die migrierte
+Standard-Organisation einmalig ueber `/claim` uebernehmen.
+
 Ein optionales Anlasslogo kann in `public/assets/img/` abgelegt und beim Anlass
 beispielsweise als `/assets/img/mein-logo.png` eingetragen werden.
 
@@ -97,14 +126,33 @@ Kurzfassung:
 
 ## Bedienablauf
 
-1. Anlass mit einem oder zwei Qualifikationslaeufen sowie optionalem Finale erstellen.
-2. Anlass in der linken Navigation auswaehlen.
-3. Jahrgangsgruppen erfassen oder beim Erstellen von einem bestehenden Anlass uebernehmen; Ueberlappungen werden verhindert.
-4. Teilnehmer mit Laufzettel-ID erfassen.
-5. Qualifikationszeiten separat oder per Schnellerfassung erfassen.
-6. Qualifikationsrangliste pruefen.
-7. Falls konfiguriert: Finalisten vorschlagen, bestaetigen und Finalzeiten erfassen.
-8. Endrangliste drucken, als PDF anzeigen oder CSV exportieren.
+1. Benutzerkonto registrieren und Organisation erstellen.
+2. Anlass mit Sportart, Disziplin/Format und Wertungsmodus erstellen.
+3. Anlass in der linken Navigation auswaehlen.
+4. Fuer Lauf-/Zeitwertungsanlaesse Jahrgangsgruppen erfassen oder von einem bestehenden Anlass uebernehmen.
+5. Teilnehmer mit Laufzettel-ID erfassen.
+6. Qualifikationszeiten separat oder per Schnellerfassung erfassen.
+7. Qualifikationsrangliste pruefen.
+8. Falls konfiguriert: Finalisten vorschlagen, bestaetigen und Finalzeiten erfassen.
+9. Endrangliste drucken, als PDF anzeigen oder CSV exportieren.
+
+Fuer Fussball, Leichtathletik, Judo und weitere Sportarten steht unter
+`/sport-results` eine generische Erfassung fuer Teams/Starter, Disziplinen,
+Begegnungen/Kaempfe und freie Resultate bereit. Sportartspezifische Auswertungen
+koennen darauf aufbauend weiter spezialisiert werden.
+
+## SaaS-Betrieb
+
+- `owner`: Plan/Billing und Teamverwaltung
+- `admin`: Teamverwaltung und Loeschaktionen
+- `operator`: Anlaesse und Resultate bearbeiten
+- `viewer`: Lesender Zugriff
+
+Subscriptions werden aktuell intern/manuell verwaltet. Fuer automatisierte
+Zahlungen kann spaeter ein Provider wie Stripe an die Tabelle `subscriptions`
+und Provider-Webhook-Felder angeschlossen werden. Token-Links fuer Einladungen
+und Passwort-Reset werden in der Oberflaeche erzeugt; fuer produktiven Betrieb
+sollte daran ein Mailversand angeschlossen werden.
 
 ## PDF
 
@@ -137,4 +185,3 @@ php -v
 apache2ctl configtest
 sudo tail -f /var/log/apache2/sportlauf_error.log
 ```
-# saas

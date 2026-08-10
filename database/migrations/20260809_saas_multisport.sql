@@ -1,3 +1,6 @@
+-- Plattform-/SaaS-Erweiterung fuer bestehende Installationen.
+-- Vorher ein Datenbankbackup erstellen.
+
 CREATE TABLE IF NOT EXISTS plans (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -117,86 +120,87 @@ CREATE TABLE IF NOT EXISTS sports (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS events (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NULL,
-    sport_id INT NULL,
-    name VARCHAR(150) NOT NULL,
-    event_date DATE NOT NULL,
-    distance_label VARCHAR(50) NOT NULL,
-    discipline_label VARCHAR(100) NULL,
-    scoring_mode ENUM('timed', 'tournament', 'points', 'bracket', 'custom') NOT NULL DEFAULT 'timed',
-    time_window VARCHAR(100) NULL,
-    qualification_runs TINYINT UNSIGNED NOT NULL DEFAULT 2,
-    final_enabled TINYINT(1) NOT NULL DEFAULT 1,
-    finalists_per_group TINYINT UNSIGNED NOT NULL DEFAULT 3,
-    logo_path VARCHAR(255) NULL,
-    status ENUM('preparation', 'active', 'closed', 'archived') NOT NULL DEFAULT 'preparation',
-    notes TEXT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_events_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    CONSTRAINT fk_events_sport FOREIGN KEY (sport_id) REFERENCES sports(id) ON DELETE SET NULL,
-    INDEX idx_events_tenant_date (tenant_id, event_date),
-    INDEX idx_events_sport (sport_id)
-);
+INSERT INTO plans (code, name, max_events, max_users, features)
+VALUES
+    ('starter', 'Starter', 5, 3, JSON_OBJECT('exports', true, 'pdf', true)),
+    ('club', 'Verein', 25, 10, JSON_OBJECT('exports', true, 'pdf', true, 'multi_sport', true)),
+    ('pro', 'Pro', NULL, NULL, JSON_OBJECT('exports', true, 'pdf', true, 'multi_sport', true, 'support', true))
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    max_events = VALUES(max_events),
+    max_users = VALUES(max_users),
+    features = VALUES(features),
+    active = 1;
 
-CREATE TABLE IF NOT EXISTS categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    event_id INT NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    year_from INT NOT NULL,
-    year_to INT NOT NULL,
-    sort_order INT NOT NULL DEFAULT 0,
-    active TINYINT(1) NOT NULL DEFAULT 1,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_categories_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
-    INDEX idx_categories_event_years (event_id, year_from, year_to)
-);
+INSERT INTO sports (code, name, scoring_mode)
+VALUES
+    ('running', 'Lauf', 'timed'),
+    ('football', 'Fussballturnier', 'tournament'),
+    ('athletics', 'Leichtathletik', 'points'),
+    ('judo', 'Judo', 'bracket'),
+    ('custom', 'Andere Sportart', 'custom')
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    scoring_mode = VALUES(scoring_mode),
+    active = 1;
 
-CREATE TABLE IF NOT EXISTS participants (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    event_id INT NOT NULL,
-    category_id INT NULL,
-    sheet_number VARCHAR(20) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    birth_year INT NOT NULL,
-    gender ENUM('female', 'male') NOT NULL,
-    school_class VARCHAR(50) NULL,
-    city VARCHAR(100) NULL,
-    notes TEXT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_participants_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
-    CONSTRAINT fk_participants_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-    UNIQUE KEY uq_participants_event_sheet (event_id, sheet_number),
-    INDEX idx_participants_name (event_id, last_name, first_name),
-    INDEX idx_participants_category_gender (event_id, category_id, gender)
-);
+SET @starter_plan_id := (SELECT id FROM plans WHERE code = 'starter' LIMIT 1);
+SET @running_sport_id := (SELECT id FROM sports WHERE code = 'running' LIMIT 1);
 
-CREATE TABLE IF NOT EXISTS results (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    participant_id INT NOT NULL,
-    run1_time_tenths INT NULL,
-    run2_time_tenths INT NULL,
-    best_qualification_time_tenths INT NULL,
-    is_finalist TINYINT(1) NOT NULL DEFAULT 0,
-    finalist_confirmed TINYINT(1) NOT NULL DEFAULT 0,
-    final_time_tenths INT NULL,
-    qualification_status ENUM('no_time', 'valid', 'dns', 'dnf', 'dsq') NOT NULL DEFAULT 'no_time',
-    final_status ENUM('not_qualified', 'qualified', 'valid', 'dns', 'dnf', 'dsq') NOT NULL DEFAULT 'not_qualified',
-    notes TEXT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_results_participant FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_results_participant (participant_id),
-    INDEX idx_results_qualification_time (best_qualification_time_tenths),
-    INDEX idx_results_final_time (final_time_tenths),
-    INDEX idx_results_finalist (is_finalist),
-    INDEX idx_results_finalist_confirmed (finalist_confirmed)
-);
+INSERT INTO tenants (plan_id, name, slug, status, trial_ends_at)
+SELECT @starter_plan_id, 'Standard-Organisation', 'standard', 'active', DATE_ADD(NOW(), INTERVAL 30 DAY)
+WHERE NOT EXISTS (SELECT 1 FROM tenants);
+
+SET @default_tenant_id := (SELECT id FROM tenants ORDER BY id LIMIT 1);
+
+INSERT INTO subscriptions (tenant_id, plan_id, provider, status, current_period_ends_at)
+SELECT @default_tenant_id, @starter_plan_id, 'manual', 'active', DATE_ADD(NOW(), INTERVAL 1 MONTH)
+WHERE @default_tenant_id IS NOT NULL
+ON DUPLICATE KEY UPDATE
+    plan_id = VALUES(plan_id),
+    status = VALUES(status),
+    current_period_ends_at = VALUES(current_period_ends_at);
+
+ALTER TABLE events
+    ADD COLUMN IF NOT EXISTS tenant_id INT NULL AFTER id,
+    ADD COLUMN IF NOT EXISTS sport_id INT NULL AFTER tenant_id,
+    ADD COLUMN IF NOT EXISTS discipline_label VARCHAR(100) NULL AFTER distance_label,
+    ADD COLUMN IF NOT EXISTS scoring_mode ENUM('timed', 'tournament', 'points', 'bracket', 'custom') NOT NULL DEFAULT 'timed' AFTER discipline_label,
+    ADD INDEX IF NOT EXISTS idx_events_tenant_date (tenant_id, event_date),
+    ADD INDEX IF NOT EXISTS idx_events_sport (sport_id);
+
+UPDATE events
+SET tenant_id = COALESCE(tenant_id, @default_tenant_id),
+    sport_id = COALESCE(sport_id, @running_sport_id),
+    scoring_mode = COALESCE(scoring_mode, 'timed'),
+    discipline_label = COALESCE(discipline_label, distance_label);
+
+DELIMITER //
+CREATE PROCEDURE add_saas_event_constraints()
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'events'
+          AND CONSTRAINT_NAME = 'fk_events_tenant'
+    ) THEN
+        ALTER TABLE events
+            ADD CONSTRAINT fk_events_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'events'
+          AND CONSTRAINT_NAME = 'fk_events_sport'
+    ) THEN
+        ALTER TABLE events
+            ADD CONSTRAINT fk_events_sport FOREIGN KEY (sport_id) REFERENCES sports(id) ON DELETE SET NULL;
+    END IF;
+END//
+DELIMITER ;
+CALL add_saas_event_constraints();
+DROP PROCEDURE add_saas_event_constraints;
 
 CREATE TABLE IF NOT EXISTS teams (
     id INT AUTO_INCREMENT PRIMARY KEY,

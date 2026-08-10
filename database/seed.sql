@@ -1,5 +1,47 @@
-INSERT INTO events (name, event_date, distance_label, time_window, logo_path, status)
-SELECT 'dä schnälsti Winkler', '2026-09-05', '2x300m', NULL, '/assets/img/laufblatt-logo.png', 'active'
+INSERT INTO plans (code, name, max_events, max_users, features)
+VALUES
+    ('starter', 'Starter', 5, 3, JSON_OBJECT('exports', true, 'pdf', true)),
+    ('club', 'Verein', 25, 10, JSON_OBJECT('exports', true, 'pdf', true, 'multi_sport', true)),
+    ('pro', 'Pro', NULL, NULL, JSON_OBJECT('exports', true, 'pdf', true, 'multi_sport', true, 'support', true))
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    max_events = VALUES(max_events),
+    max_users = VALUES(max_users),
+    features = VALUES(features),
+    active = 1;
+
+INSERT INTO sports (code, name, scoring_mode)
+VALUES
+    ('running', 'Lauf', 'timed'),
+    ('football', 'Fussballturnier', 'tournament'),
+    ('athletics', 'Leichtathletik', 'points'),
+    ('judo', 'Judo', 'bracket'),
+    ('custom', 'Andere Sportart', 'custom')
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    scoring_mode = VALUES(scoring_mode),
+    active = 1;
+
+INSERT INTO tenants (plan_id, name, slug, contact_email, status, trial_ends_at)
+SELECT p.id, 'Demo-Organisation', 'demo', 'demo@example.test', 'active', DATE_ADD(NOW(), INTERVAL 30 DAY)
+FROM plans p
+WHERE p.code = 'starter'
+  AND NOT EXISTS (SELECT 1 FROM tenants WHERE slug = 'demo');
+
+SET @tenant_id := (SELECT id FROM tenants WHERE slug = 'demo' LIMIT 1);
+SET @sport_id := (SELECT id FROM sports WHERE code = 'running' LIMIT 1);
+SET @plan_id := (SELECT id FROM plans WHERE code = 'starter' LIMIT 1);
+
+INSERT INTO subscriptions (tenant_id, plan_id, provider, status, current_period_ends_at)
+SELECT @tenant_id, @plan_id, 'manual', 'active', DATE_ADD(NOW(), INTERVAL 1 MONTH)
+WHERE @tenant_id IS NOT NULL
+ON DUPLICATE KEY UPDATE
+    plan_id = VALUES(plan_id),
+    status = VALUES(status),
+    current_period_ends_at = VALUES(current_period_ends_at);
+
+INSERT INTO events (tenant_id, sport_id, name, event_date, distance_label, discipline_label, scoring_mode, time_window, logo_path, status)
+SELECT @tenant_id, @sport_id, 'dä schnälsti Winkler', '2026-09-05', '2x300m', 'Sprint', 'timed', NULL, '/assets/img/laufblatt-logo.png', 'active'
 WHERE NOT EXISTS (SELECT 1 FROM events);
 
 SET @event_id := (

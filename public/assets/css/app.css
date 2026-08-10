@@ -42,6 +42,34 @@ a { color: var(--accent-dark); }
     margin-bottom: 22px;
 }
 
+.tenant-meta {
+    border: 1px solid #274b68;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 14px;
+    background: #173955;
+}
+
+.tenant-meta strong,
+.tenant-meta span {
+    display: block;
+}
+
+.tenant-meta span {
+    margin-top: 3px;
+    color: #cbd5e1;
+    font-size: 13px;
+}
+
+.logout-form {
+    margin-top: 18px;
+}
+
+.auth-main {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
 .event-switcher {
     margin: 0 0 18px;
 }
@@ -188,8 +216,8 @@ button, .button {
 }
 
 button:hover, .button:hover { background: var(--accent-dark); color: #fff; }
-.button.secondary { background: #475569; }
-.button.light { background: #e2e8f0; color: #1f2937; }
+.button.secondary, button.secondary { background: #475569; }
+.button.light, button.light { background: #e2e8f0; color: #1f2937; }
 button.danger, .button.danger { background: var(--bad); }
 button.danger:hover, .button.danger:hover { background: #991b1b; }
 
