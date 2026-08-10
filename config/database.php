@@ -1,8 +1,8 @@
 <?php
 return [
     'host' => 'localhost',
-    'database' => 'silberf1_saas',
-    'username' => 'silberf1_saas',
-    'password' => 'b7B0tMFG8*gmyElc',
+    'database' => 'saas',
+    'username' => 'saas_user',
+    'password' => 'Stargate@8706',
     'charset' => 'utf8mb4',
 ];

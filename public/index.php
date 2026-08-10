@@ -1377,6 +1377,32 @@ try {
         redirect('/organization', 'Einladungslink: ' . absoluteUrl('/invite/accept?token=' . urlencode($token)));
     }
 
+    if ($path === '/organization/update' && $method === 'POST') {
+        $tenant = requireWritableTenant('admin');
+        $name = trim((string)($_POST['name'] ?? ''));
+        $contactEmail = strtolower(trim((string)($_POST['contact_email'] ?? '')));
+        $billingEmail = strtolower(trim((string)($_POST['billing_email'] ?? '')));
+        if ($name === '') {
+            throw new InvalidArgumentException('Organisationsname ist erforderlich.');
+        }
+        if ($contactEmail !== '' && !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('Kontakt-E-Mail ist ungueltig.');
+        }
+        if ($billingEmail !== '' && !filter_var($billingEmail, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('Rechnungs-E-Mail ist ungueltig.');
+        }
+        db()->prepare(
+            'UPDATE tenants SET name = :name, contact_email = :contact_email, billing_email = :billing_email WHERE id = :id'
+        )->execute([
+            'name' => $name, 'contact_email' => $contactEmail ?: null,
+            'billing_email' => $billingEmail ?: null, 'id' => (int)$tenant['id'],
+        ]);
+        auditLog('tenant.updated', (int)$tenant['id'], (int)(currentUser()['id'] ?? 0), 'tenant', (string)$tenant['id']);
+        unset($_SESSION['tenant_id']);
+        $_SESSION['tenant_id'] = (int)$tenant['id'];
+        redirect('/organization', 'Organisation aktualisiert.');
+    }
+
     if ($path === '/organization/member/update' && $method === 'POST') {
         $tenant = requireWritableTenant('admin');
         $userId = (int)($_POST['user_id'] ?? 0);
@@ -1412,6 +1438,12 @@ try {
                 <p><?= e($tenant['status']) ?> · <?= e($tenant['plan_name'] ?? 'Starter') ?> · Rolle: <?= e($tenant['role']) ?></p>
             </div>
             <?php if ($canManage): ?>
+                <div class="panel"><h2>Stammdaten</h2><form method="post" action="/organization/update" class="grid">
+                    <label>Organisationsname<input required name="name" value="<?= e($tenant['name']) ?>"></label>
+                    <label>Kontakt-E-Mail<input type="email" name="contact_email" value="<?= e($tenant['contact_email']) ?>"></label>
+                    <label>Rechnungs-E-Mail<input type="email" name="billing_email" value="<?= e($tenant['billing_email']) ?>"></label>
+                    <div><button>Stammdaten speichern</button></div>
+                </form></div>
                 <div class="panel"><form method="post" action="/organization/invite" class="grid">
                     <label>E-Mail einladen<input required type="email" name="email"></label>
                     <label>Rolle<select name="role">
@@ -1859,6 +1891,94 @@ try {
         redirect('/sport-results', 'Resultat gespeichert.');
     }
 
+    if ($path === '/sport-results/team/update' && $method === 'POST') {
+        requireWritableTenant('operator');
+        $event = requireEvent();
+        $stmt = db()->prepare(
+            'UPDATE teams SET name = :name, group_label = :group_label, contact_name = :contact_name,
+             contact_email = :contact_email, notes = :notes WHERE id = :id AND event_id = :event_id'
+        );
+        $stmt->execute([
+            'name' => trim((string)$_POST['name']),
+            'group_label' => trim((string)($_POST['group_label'] ?? '')),
+            'contact_name' => trim((string)($_POST['contact_name'] ?? '')),
+            'contact_email' => trim((string)($_POST['contact_email'] ?? '')),
+            'notes' => trim((string)($_POST['notes'] ?? '')),
+            'id' => (int)($_POST['id'] ?? 0),
+            'event_id' => (int)$event['id'],
+        ]);
+        redirect('/sport-results', 'Team/Starter aktualisiert.');
+    }
+
+    if ($path === '/sport-results/discipline/update' && $method === 'POST') {
+        requireWritableTenant('operator');
+        $event = requireEvent();
+        $type = in_array((string)($_POST['discipline_type'] ?? ''), ['match', 'attempts', 'points', 'bracket', 'custom'], true)
+            ? (string)$_POST['discipline_type'] : 'custom';
+        db()->prepare(
+            'UPDATE sport_disciplines SET name = :name, discipline_type = :discipline_type, sort_order = :sort_order
+             WHERE id = :id AND event_id = :event_id'
+        )->execute([
+            'name' => trim((string)$_POST['name']), 'discipline_type' => $type,
+            'sort_order' => (int)($_POST['sort_order'] ?? 0), 'id' => (int)($_POST['id'] ?? 0),
+            'event_id' => (int)$event['id'],
+        ]);
+        redirect('/sport-results', 'Disziplin aktualisiert.');
+    }
+
+    if ($path === '/sport-results/match/update' && $method === 'POST') {
+        requireWritableTenant('operator');
+        $event = requireEvent();
+        $status = in_array((string)($_POST['status'] ?? ''), ['scheduled', 'running', 'completed', 'cancelled'], true)
+            ? (string)$_POST['status'] : 'scheduled';
+        db()->prepare(
+            'UPDATE sport_matches SET group_label = :group_label, round_label = :round_label,
+             scheduled_at = :scheduled_at, home_score = :home_score, away_score = :away_score,
+             status = :status, notes = :notes WHERE id = :id AND event_id = :event_id'
+        )->execute([
+            'group_label' => trim((string)($_POST['group_label'] ?? '')),
+            'round_label' => trim((string)($_POST['round_label'] ?? '')),
+            'scheduled_at' => trim((string)($_POST['scheduled_at'] ?? '')) !== '' ? str_replace('T', ' ', trim((string)$_POST['scheduled_at'])) : null,
+            'home_score' => trim((string)($_POST['home_score'] ?? '')) !== '' ? (float)$_POST['home_score'] : null,
+            'away_score' => trim((string)($_POST['away_score'] ?? '')) !== '' ? (float)$_POST['away_score'] : null,
+            'status' => $status, 'notes' => trim((string)($_POST['notes'] ?? '')),
+            'id' => (int)($_POST['id'] ?? 0), 'event_id' => (int)$event['id'],
+        ]);
+        redirect('/sport-results', 'Begegnung aktualisiert.');
+    }
+
+    if ($path === '/sport-results/score/update' && $method === 'POST') {
+        requireWritableTenant('operator');
+        $event = requireEvent();
+        $status = in_array((string)($_POST['status'] ?? ''), ['pending', 'valid', 'dns', 'dnf', 'dsq'], true)
+            ? (string)$_POST['status'] : 'pending';
+        db()->prepare(
+            'UPDATE sport_scores SET score_value = :score_value, score_text = :score_text,
+             rank_position = :rank_position, status = :status, notes = :notes
+             WHERE id = :id AND event_id = :event_id'
+        )->execute([
+            'score_value' => trim((string)($_POST['score_value'] ?? '')) !== '' ? (float)$_POST['score_value'] : null,
+            'score_text' => trim((string)($_POST['score_text'] ?? '')),
+            'rank_position' => (int)($_POST['rank_position'] ?? 0) ?: null,
+            'status' => $status, 'notes' => trim((string)($_POST['notes'] ?? '')),
+            'id' => (int)($_POST['id'] ?? 0), 'event_id' => (int)$event['id'],
+        ]);
+        redirect('/sport-results', 'Resultat aktualisiert.');
+    }
+
+    if (str_starts_with($path, '/sport-results/') && str_ends_with($path, '/delete') && $method === 'POST') {
+        requireWritableTenant('admin');
+        $event = requireEvent();
+        $entity = explode('/', trim($path, '/'))[1] ?? '';
+        $tables = ['team' => 'teams', 'discipline' => 'sport_disciplines', 'match' => 'sport_matches', 'score' => 'sport_scores'];
+        if (!isset($tables[$entity])) {
+            throw new InvalidArgumentException('Unbekannter Datentyp.');
+        }
+        $stmt = db()->prepare('DELETE FROM ' . $tables[$entity] . ' WHERE id = :id AND event_id = :event_id');
+        $stmt->execute(['id' => (int)($_POST['id'] ?? 0), 'event_id' => (int)$event['id']]);
+        redirect('/sport-results', $stmt->rowCount() > 0 ? 'Eintrag geloescht.' : 'Eintrag nicht gefunden.');
+    }
+
     if ($path === '/sport-results' && $method === 'GET') {
         render('Wertung', function (): void {
             $event = requireEvent();
@@ -1906,9 +2026,28 @@ try {
                 <label>Bemerkung<input name="notes"></label>
                 <div><button>Resultat speichern</button></div>
             </form></div>
-            <h2>Teams / Starter</h2><table><thead><tr><th>Name</th><th>Gruppe</th><th>Kontakt</th></tr></thead><tbody><?php
+            <h2>Teams / Starter</h2><table><thead><tr><th>Stammdaten</th><th>Aktionen</th></tr></thead><tbody><?php
             foreach ($teams as $team) {
-                echo '<tr><td>' . e($team['name']) . '</td><td>' . e($team['group_label']) . '</td><td>' . e($team['contact_name']) . '</td></tr>';
+                ?><tr><td colspan="2"><form method="post" action="/sport-results/team/update" class="grid">
+                    <input type="hidden" name="id" value="<?= (int)$team['id'] ?>">
+                    <label>Name<input required name="name" value="<?= e($team['name']) ?>"></label>
+                    <label>Gruppe<input name="group_label" value="<?= e($team['group_label']) ?>"></label>
+                    <label>Kontakt<input name="contact_name" value="<?= e($team['contact_name']) ?>"></label>
+                    <label>E-Mail<input type="email" name="contact_email" value="<?= e($team['contact_email']) ?>"></label>
+                    <label>Bemerkung<input name="notes" value="<?= e($team['notes']) ?>"></label>
+                    <div><button>Speichern</button></div>
+                </form><form method="post" action="/sport-results/team/delete" class="inline-form" onsubmit="return confirm('Team/Starter wirklich loeschen?')"><input type="hidden" name="id" value="<?= (int)$team['id'] ?>"><button class="danger">Loeschen</button></form></td></tr><?php
+            }
+            ?></tbody></table>
+            <h2>Disziplinen / Wertungen</h2><table><thead><tr><th>Konfiguration</th><th>Aktionen</th></tr></thead><tbody><?php
+            foreach ($disciplines as $d) {
+                ?><tr><td colspan="2"><form method="post" action="/sport-results/discipline/update" class="grid">
+                    <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
+                    <label>Name<input required name="name" value="<?= e($d['name']) ?>"></label>
+                    <label>Typ<select name="discipline_type"><?php foreach (['match' => 'Spiel/Kampf', 'attempts' => 'Versuche', 'points' => 'Punkte', 'bracket' => 'K.-o.-Raster', 'custom' => 'Frei'] as $value => $label): ?><option value="<?= e($value) ?>" <?= $d['discipline_type'] === $value ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+                    <label>Sortierung<input type="number" name="sort_order" value="<?= (int)$d['sort_order'] ?>"></label>
+                    <div><button>Speichern</button></div>
+                </form><form method="post" action="/sport-results/discipline/delete" class="inline-form" onsubmit="return confirm('Disziplin wirklich loeschen? Bestehende Eintraege verlieren ihre Zuordnung.')"><input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><button class="danger">Loeschen</button></form></td></tr><?php
             }
             ?></tbody></table>
             <h2>Begegnungen / Kaempfe</h2><table><thead><tr><th>Zeit</th><th>Gruppe</th><th>Runde</th><th>Heim/Rot</th><th>Auswaerts/Weiss</th><th>Score</th><th>Status</th></tr></thead><tbody><?php
@@ -1921,7 +2060,16 @@ try {
             );
             $matches->execute(['event_id' => (int)$event['id']]);
             foreach ($matches as $m) {
-                echo '<tr><td>' . e($m['scheduled_at']) . '</td><td>' . e($m['group_label']) . '</td><td>' . e($m['round_label']) . '</td><td>' . e($m['home_name']) . '</td><td>' . e($m['away_name']) . '</td><td>' . e($m['home_score'] !== null || $m['away_score'] !== null ? $m['home_score'] . ' : ' . $m['away_score'] : '') . '</td><td>' . e($m['status']) . '</td></tr>';
+                ?><tr><td colspan="7"><p><strong><?= e($m['home_name'] ?: 'Offen') ?> – <?= e($m['away_name'] ?: 'Offen') ?></strong></p><form method="post" action="/sport-results/match/update" class="grid">
+                    <input type="hidden" name="id" value="<?= (int)$m['id'] ?>">
+                    <label>Zeit<input type="datetime-local" name="scheduled_at" value="<?= e($m['scheduled_at'] ? str_replace(' ', 'T', substr($m['scheduled_at'], 0, 16)) : '') ?>"></label>
+                    <label>Gruppe<input name="group_label" value="<?= e($m['group_label']) ?>"></label>
+                    <label>Runde<input name="round_label" value="<?= e($m['round_label']) ?>"></label>
+                    <label>Score Heim<input type="number" step="0.01" name="home_score" value="<?= e($m['home_score']) ?>"></label>
+                    <label>Score Auswaerts<input type="number" step="0.01" name="away_score" value="<?= e($m['away_score']) ?>"></label>
+                    <label>Status<select name="status"><?php foreach (['scheduled' => 'geplant', 'running' => 'laufend', 'completed' => 'fertig', 'cancelled' => 'abgesagt'] as $value => $label): ?><option value="<?= e($value) ?>" <?= $m['status'] === $value ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+                    <label>Bemerkung<input name="notes" value="<?= e($m['notes']) ?>"></label><div><button>Speichern</button></div>
+                </form><form method="post" action="/sport-results/match/delete" class="inline-form" onsubmit="return confirm('Begegnung wirklich loeschen?')"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><button class="danger">Loeschen</button></form></td></tr><?php
             }
             ?></tbody></table>
             <h2>Resultate</h2><table><thead><tr><th>Disziplin</th><th>Team/Starter</th><th>Wert</th><th>Text</th><th>Rang</th><th>Status</th></tr></thead><tbody><?php
@@ -1934,7 +2082,14 @@ try {
             );
             $scores->execute(['event_id' => (int)$event['id']]);
             foreach ($scores as $score) {
-                echo '<tr><td>' . e($score['discipline_name']) . '</td><td>' . e($score['team_name']) . '</td><td>' . e($score['score_value']) . '</td><td>' . e($score['score_text']) . '</td><td>' . e((string)$score['rank_position']) . '</td><td>' . e($score['status']) . '</td></tr>';
+                ?><tr><td colspan="6"><p><strong><?= e($score['discipline_name'] ?: 'Ohne Disziplin') ?> · <?= e($score['team_name'] ?: 'Ohne Team/Starter') ?></strong></p><form method="post" action="/sport-results/score/update" class="grid">
+                    <input type="hidden" name="id" value="<?= (int)$score['id'] ?>">
+                    <label>Punkte/Wert<input type="number" step="0.01" name="score_value" value="<?= e($score['score_value']) ?>"></label>
+                    <label>Textresultat<input name="score_text" value="<?= e($score['score_text']) ?>"></label>
+                    <label>Rang<input type="number" name="rank_position" value="<?= e((string)$score['rank_position']) ?>"></label>
+                    <label>Status<select name="status"><?php foreach (['pending', 'valid', 'dns', 'dnf', 'dsq'] as $value): ?><option value="<?= e($value) ?>" <?= $score['status'] === $value ? 'selected' : '' ?>><?= e($value) ?></option><?php endforeach; ?></select></label>
+                    <label>Bemerkung<input name="notes" value="<?= e($score['notes']) ?>"></label><div><button>Speichern</button></div>
+                </form><form method="post" action="/sport-results/score/delete" class="inline-form" onsubmit="return confirm('Resultat wirklich loeschen?')"><input type="hidden" name="id" value="<?= (int)$score['id'] ?>"><button class="danger">Loeschen</button></form></td></tr><?php
             }
             ?></tbody></table><?php
         });
@@ -2045,6 +2200,33 @@ try {
         redirect('/participants/create', 'Teilnehmer gespeichert.');
     }
 
+    if ($path === '/participants/update' && $method === 'POST') {
+        requireWritableTenant('operator');
+        $event = requireTimedEvent();
+        $participantId = (int)($_POST['id'] ?? 0);
+        $stmt = db()->prepare('SELECT COUNT(*) FROM participants WHERE id = :id AND event_id = :event_id');
+        $stmt->execute(['id' => $participantId, 'event_id' => (int)$event['id']]);
+        if ((int)$stmt->fetchColumn() !== 1) {
+            throw new InvalidArgumentException('Teilnehmer wurde in diesem Anlass nicht gefunden.');
+        }
+        $_POST['event_id'] = (int)$event['id'];
+        saveParticipant($_POST, $participantId);
+        auditLog('participant.updated', (int)$event['tenant_id'], (int)(currentUser()['id'] ?? 0), 'participant', (string)$participantId);
+        redirect('/participants', 'Teilnehmer aktualisiert.');
+    }
+
+    if ($path === '/participants/delete' && $method === 'POST') {
+        requireWritableTenant('admin');
+        $event = requireTimedEvent();
+        $participantId = (int)($_POST['id'] ?? 0);
+        $stmt = db()->prepare('DELETE FROM participants WHERE id = :id AND event_id = :event_id');
+        $stmt->execute(['id' => $participantId, 'event_id' => (int)$event['id']]);
+        if ($stmt->rowCount() > 0) {
+            auditLog('participant.deleted', (int)$event['tenant_id'], (int)(currentUser()['id'] ?? 0), 'participant', (string)$participantId);
+        }
+        redirect('/participants', $stmt->rowCount() > 0 ? 'Teilnehmer geloescht.' : 'Teilnehmer nicht gefunden.');
+    }
+
     if ($path === '/participants/create' && $method === 'GET') {
         render('Teilnehmer erfassen', function (): void {
             $event = requireTimedEvent();
@@ -2069,14 +2251,32 @@ try {
         render('Teilnehmer', function (): void {
             $event = requireTimedEvent();
             ?><div class="toolbar"><a class="button" href="/participants/create">Teilnehmer erfassen</a></div>
-            <table><thead><tr><th>Zettel</th><th>Name</th><th>Vorname</th><th>Jg.</th><th>Geschlecht</th><th>Kategorie</th><th>Klasse</th><th>Ort</th></tr></thead><tbody><?php
+            <table><thead><tr><th>Teilnehmerdaten</th><th>Wertungsgruppe</th><th>Aktionen</th></tr></thead><tbody><?php
             $stmt = db()->prepare(
                 'SELECT p.*, c.name AS category_name FROM participants p LEFT JOIN categories c ON c.id = p.category_id
                  WHERE p.event_id = :event_id ORDER BY CAST(p.sheet_number AS UNSIGNED), p.sheet_number'
             );
             $stmt->execute(['event_id' => $event['id']]);
             foreach ($stmt as $p) {
-                echo '<tr><td>' . e($p['sheet_number']) . '</td><td>' . e($p['last_name']) . '</td><td>' . e($p['first_name']) . '</td><td>' . (int)$p['birth_year'] . '</td><td>' . e($p['gender'] === 'female' ? 'Maedchen' : 'Knabe') . '</td><td>' . e($p['category_name'] ?: 'ohne Kategorie') . '</td><td>' . e($p['school_class']) . '</td><td>' . e($p['city']) . '</td></tr>';
+                ?><tr>
+                    <td colspan="3">
+                        <form method="post" action="/participants/update" class="grid">
+                            <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
+                            <label>Laufzettel-ID<input required name="sheet_number" value="<?= e($p['sheet_number']) ?>"></label>
+                            <label>Name<input required name="last_name" value="<?= e($p['last_name']) ?>"></label>
+                            <label>Vorname<input required name="first_name" value="<?= e($p['first_name']) ?>"></label>
+                            <label>Jahrgang<input required type="number" name="birth_year" value="<?= (int)$p['birth_year'] ?>"></label>
+                            <label>Geschlecht<select name="gender"><option value="female" <?= $p['gender'] === 'female' ? 'selected' : '' ?>>Maedchen</option><option value="male" <?= $p['gender'] === 'male' ? 'selected' : '' ?>>Knabe</option></select></label>
+                            <label>Klasse<input name="school_class" value="<?= e($p['school_class']) ?>"></label>
+                            <label>Ort<input name="city" value="<?= e($p['city']) ?>"></label>
+                            <label>Bemerkung<input name="notes" value="<?= e($p['notes']) ?>"></label>
+                            <div><span class="muted"><?= e($p['category_name'] ?: 'ohne Kategorie') ?></span><br><button>Speichern</button></div>
+                        </form>
+                        <form method="post" action="/participants/delete" class="inline-form" onsubmit="return confirm('Diesen Teilnehmer inklusive Resultaten wirklich loeschen?')">
+                            <input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="danger">Loeschen</button>
+                        </form>
+                    </td>
+                </tr><?php
             }
             ?></tbody></table><?php
         });

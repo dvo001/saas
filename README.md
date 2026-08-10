@@ -72,6 +72,21 @@ mysql -u sportlauf_user -p sportlauf < database/schema.sql
 mysql -u sportlauf_user -p sportlauf < database/seed.sql
 ```
 
+`database/seed.sql` ist fuer lokale Demo- und Testsysteme gedacht und kann
+mehrfach ausgefuehrt werden. Er legt die isolierte Organisation
+`demo-sportverein`, einen Laufanlass mit 24 Teilnehmenden und Finalresultaten
+sowie ein kleines Fussballturnier an. Demo-Login:
+
+```text
+E-Mail:  owner@demo.test
+Passwort: Demo1234!
+```
+
+Weitere Rollen koennen mit `admin@demo.test`, `operator@demo.test` und
+`viewer@demo.test` getestet werden; alle Demo-Konten verwenden dasselbe
+Passwort. Den Seed wegen dieser bekannten Zugangsdaten nicht in einer
+Produktivdatenbank importieren.
+
 Bei einer bestehenden Installation einmalig die Anlass-Konfiguration ergaenzen:
 
 ```bash
