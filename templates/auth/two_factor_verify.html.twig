@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+{% block title %}Sicherheitscode eingeben{% endblock %}
+{% block shell %}
+<main id="main-content" class="container py-5 auth-shell">
+    <div class="card shadow-sm border-0"><div class="card-body p-4 p-md-5">
+        <p class="eyebrow">Zweiter Faktor</p><h1 class="h3">Sicherheitscode eingeben</h1>
+        <p class="text-body-secondary">Öffnen Sie Ihre Authenticator-App.</p>
+        {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+        <form method="post">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('totp_verify') }}">
+            <label class="form-label" for="code">6-stelliger Code</label>
+            <input class="form-control mb-3" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" required autofocus>
+            <button class="btn btn-primary" type="submit">Bestätigen</button>
+        </form>
+    </div></div>
+</main>
+{% endblock %}

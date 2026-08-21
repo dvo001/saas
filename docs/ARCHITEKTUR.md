@@ -1,6 +1,7 @@
 # Architektur – SaaS-Plattform für Schweizer Sportvereine
 
-Status: Milestone 0  
+Status: Milestone 2
+
 Stand: 21. August 2026  
 Zielversion: Version 1
 
@@ -153,7 +154,7 @@ erratbare UUIDv7-Bezeichner.
 
 ### Kern
 
-- `tenants`, `users` mit `UNIQUE (tenant_id, email)` und genau einem Owner
+- `tenants`, `tenant_users` mit `UNIQUE (tenant_id, email)` und genau einem Owner
 - `platform_admins` strikt getrennt von Vereinsbenutzern
 - `roles`, `user_event_assignments`, `authentication_factors`, `login_attempts`
 - `events`, `event_versions`, `event_templates`

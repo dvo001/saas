@@ -24,4 +24,16 @@
         const open = nav?.classList.toggle('show') ?? false;
         navButton.setAttribute('aria-expanded', String(open));
     });
+
+    const slugSource = document.querySelector('[data-slug-source]');
+    const slugTarget = document.querySelector('[data-slug-target]');
+    let slugWasEdited = Boolean(slugTarget?.value);
+    slugTarget?.addEventListener('input', () => { slugWasEdited = true; });
+    slugSource?.addEventListener('input', () => {
+        if (slugWasEdited || !slugTarget) return;
+        slugTarget.value = slugSource.value
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '').slice(0, 80);
+    });
 })();

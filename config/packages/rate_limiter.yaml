@@ -1,0 +1,18 @@
+framework:
+  rate_limiter:
+    account_recovery:
+      policy: sliding_window
+      limit: 5
+      interval: '1 hour'
+    invitation:
+      policy: sliding_window
+      limit: 10
+      interval: '1 hour'
+    two_factor:
+      policy: sliding_window
+      limit: 10
+      interval: '1 minute'
+    registration:
+      policy: sliding_window
+      limit: 10
+      interval: '1 hour'

@@ -3,10 +3,10 @@
 Modulare SaaS-Plattform für kleine Schweizer Sportvereine. Version 1 wird für
 Laufanlässe und Fussballturniere entwickelt.
 
-Der aktuelle Stand ist **Milestone 1 (Application Core)**. Enthalten sind das
-Symfony-Grundgerüst, sichere Konfiguration, versionierte Migrationen,
-Fehlerreferenzen, deutsche i18n-Grundlage, responsives Light/Dark-Layout,
-private Dateispeicherung, Web-Installer und versionierte Plattform-Grundwerte.
+Der aktuelle Stand ist **Milestone 2 (Authentifizierung, Mandanten und Rollen)**.
+Zusätzlich zum Application Core sind Vereinsregistrierung, mandantenspezifischer
+Login, E-Mail- und Einladungstokens, Passwortreset, TOTP-2FA, Session- und
+Sperrregeln, Benutzerverwaltung, Ownerwechsel sowie eventbezogene Rollen vorhanden.
 
 ## Technischer Stack
 
@@ -75,8 +75,21 @@ php bin/console lint:yaml config translations
 php bin/console lint:twig templates
 ```
 
-Die verpflichtenden Mandanten-Isolationstests werden mit dem Mandantenmodell in
-Milestone 2 eingeführt und blockieren danach jeden Merge.
+Die verpflichtenden Mandanten-Isolationstests sind seit Milestone 2 Merge-Blocker.
+Die schnelle Suite prüft den Architekturvertrag ohne Datenbank. Die vollständige
+Suite muss zusätzlich gegen eine frisch migrierte, ausschließlich für Tests
+bestimmte MariaDB laufen:
+
+```bash
+RUN_DATABASE_TESTS=1 DATABASE_URL='mysql://…/saas_test?serverVersion=10.6.0-MariaDB&charset=utf8mb4' \
+  vendor/bin/phpunit --group database
+```
+
+Nicht bestätigte Registrierungen werden per Hosting-Cron gepflegt:
+
+```bash
+php bin/console app:registrations:maintain
+```
 
 ## Private Dateien und Secrets
 

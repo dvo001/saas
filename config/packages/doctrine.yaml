@@ -14,6 +14,10 @@ doctrine:
         dir: '%kernel.project_dir%/src/Core/Infrastructure/Doctrine/Entity'
         prefix: 'App\Core\Infrastructure\Doctrine\Entity'
         alias: App
+    filters:
+      tenant:
+        class: App\Core\Infrastructure\Tenancy\TenantSqlFilter
+        enabled: false
 
 when@prod:
   doctrine:

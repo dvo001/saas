@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+{% block title %}Verein registrieren{% endblock %}
+{% block shell %}
+<main id="main-content" class="container py-5 registration-shell">
+    <div class="row justify-content-center"><div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-3"><p class="eyebrow mb-0">Verein registrieren</p><span class="badge text-bg-secondary">Schritt {{ step }} von 3</span></div>
+        <div class="progress mb-4" role="progressbar" aria-label="Registrierungsfortschritt" aria-valuenow="{{ step }}" aria-valuemin="1" aria-valuemax="3"><div class="progress-bar registration-progress-{{ step }}"></div></div>
+        <div class="card shadow-sm border-0"><div class="card-body p-4 p-md-5">
+            {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+            <form method="post">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('registration_step_' ~ step) }}">
+                {% if step == 1 %}
+                    <h1 class="h3 mb-4">Verein und Testmodul</h1>
+                    <div class="mb-3"><label class="form-label" for="club_name">Vereinsname</label><input class="form-control" id="club_name" name="club_name" value="{{ data.club_name|default('') }}" maxlength="180" data-slug-source required autofocus></div>
+                    <div class="mb-3"><label class="form-label" for="slug">Vereins-Slug</label><div class="input-group"><span class="input-group-text">/v/</span><input class="form-control" id="slug" name="slug" value="{{ data.slug|default('') }}" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxlength="80" data-slug-target required></div><div class="form-text">Wird vorgeschlagen und kann bis zur E-Mail-Bestätigung geändert werden; danach bleibt er unveränderlich.</div></div>
+                    <fieldset><legend class="h6">Testmodul für 14 Tage</legend>{% for module in modules %}<div class="form-check"><input class="form-check-input" type="radio" id="module_{{ module.value }}" name="module" value="{{ module.value }}" {{ data.module|default('') == module.value ? 'checked' : '' }} required><label class="form-check-label" for="module_{{ module.value }}">{{ module.label }}</label></div>{% endfor %}</fieldset>
+                {% elseif step == 2 %}
+                    <h1 class="h3 mb-4">Owner-Konto</h1>
+                    <div class="mb-3"><label class="form-label" for="display_name">Vor- und Nachname</label><input class="form-control" id="display_name" name="display_name" value="{{ data.display_name|default('') }}" maxlength="120" required autofocus></div>
+                    <div class="mb-3"><label class="form-label" for="email">E-Mail-Adresse</label><input class="form-control" id="email" name="email" type="email" value="{{ data.email|default('') }}" autocomplete="email" required></div>
+                {% else %}
+                    <h1 class="h3 mb-4">Sicherheit und Abschluss</h1>
+                    <div class="mb-3"><label class="form-label" for="password">Passwort</label><input class="form-control" id="password" name="password" type="password" minlength="12" autocomplete="new-password" required autofocus><div class="form-text">Mindestens 12 Zeichen; häufige oder leicht erratbare Passwörter werden abgelehnt.</div></div>
+                    <div class="form-check mb-3"><input class="form-check-input" id="legal" name="legal_accepted" type="checkbox" value="1" required><label class="form-check-label" for="legal">Ich akzeptiere Nutzungsbedingungen und Datenschutzerklärung (Version {{ legal_version }}).</label></div>
+                    <div class="alert alert-info">Die 14-tägige Testphase startet erst mit der E-Mail-Bestätigung. Für Owner ist anschliessend 2FA obligatorisch.</div>
+                {% endif %}
+                <div class="d-flex justify-content-between mt-4">{% if step > 1 %}<button class="btn btn-outline-secondary" type="submit" name="back" value="1">Zurück</button>{% else %}<span></span>{% endif %}<button class="btn btn-primary" type="submit">{{ step == 3 ? 'Registrierung absenden' : 'Weiter' }}</button></div>
+            </form>
+        </div></div>
+    </div></div>
+</main>
+{% endblock %}

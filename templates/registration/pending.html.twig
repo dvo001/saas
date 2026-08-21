@@ -1,0 +1,3 @@
+{% extends 'base.html.twig' %}
+{% block title %}E-Mail bestätigen{% endblock %}
+{% block shell %}<main id="main-content" class="container py-5 auth-shell"><div class="card border-0 shadow-sm"><div class="card-body p-5 text-center"><div class="success-mark">✓</div><h1 class="h3">Bitte E-Mail bestätigen</h1><p>Wir haben den Bestätigungslink für <strong>{{ tenant.name }}</strong> versendet. Er ist 7 Tage gültig; die Testphase beginnt erst nach der Bestätigung.</p><a href="{{ path('registration_resend') }}">Bestätigung erneut senden</a></div></div></main>{% endblock %}

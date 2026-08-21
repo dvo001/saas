@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Anmelden · {{ tenant.name }}{% endblock %}
+
+{% block shell %}
+<main id="main-content" class="container py-5 auth-shell">
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4 p-md-5">
+            <p class="eyebrow mb-2">{{ tenant.name }}</p>
+            <h1 class="h3 mb-4">Beim Verein anmelden</h1>
+            {% if app.request.query.get('expired') %}<div class="alert alert-info">Die Sitzung ist wegen Inaktivität abgelaufen.</div>{% endif %}
+            {% if app.request.query.get('reset') %}<div class="alert alert-success">Das Passwort wurde geändert. Alle bisherigen Sitzungen sind ungültig.</div>{% endif %}
+            {% if app.request.query.get('unlocked') %}<div class="alert alert-success">Das Owner-Konto wurde entsperrt.</div>{% endif %}
+            {% if app.request.query.get('invited') %}<div class="alert alert-success">Das Konto wurde aktiviert. Sie können sich jetzt anmelden.</div>{% endif %}
+            {% if authentication_error %}<div class="alert alert-danger" role="alert">{{ authentication_error.messageKey|trans(authentication_error.messageData, 'security') }}</div>{% endif %}
+            <form method="post" action="{{ path('tenant_login', {slug: tenant.slug}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_login') }}">
+                <div class="mb-3">
+                    <label class="form-label" for="email">E-Mail-Adresse</label>
+                    <input class="form-control" id="email" type="email" name="email" value="{{ last_username }}" autocomplete="username" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="password">Passwort</label>
+                    <input class="form-control" id="password" type="password" name="password" autocomplete="current-password" required>
+                </div>
+                <div class="form-check mb-4">
+                    <input class="form-check-input" id="remember" type="checkbox" name="_remember_me">
+                    <label class="form-check-label" for="remember">Auf diesem Gerät angemeldet bleiben (max. 30 Tage)</label>
+                </div>
+                <button class="btn btn-primary w-100" type="submit">Anmelden</button>
+            </form>
+            <div class="d-flex justify-content-between mt-3"><a href="{{ path('password_forgot', {slug: tenant.slug}) }}">Passwort vergessen?</a><a href="{{ path('owner_unlock_request', {slug: tenant.slug}) }}">Owner gesperrt?</a></div>
+        </div>
+    </div>
+</main>
+{% endblock %}
