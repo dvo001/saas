@@ -1,19 +1,81 @@
 {
-  "name": "dvo001/laufanlass",
-  "description": "Lokale LAMP-Webapplikation fuer konfigurierbare Laufanlaesse mit optionalem Finallauf.",
+  "name": "dvo001/swiss-club-saas",
+  "description": "Mandantenfähige SaaS-Plattform für Schweizer Sportvereine.",
   "type": "project",
+  "license": "proprietary",
   "require": {
-    "php": ">=8.1"
+    "php": ">=8.2",
+    "ext-ctype": "*",
+    "ext-iconv": "*",
+    "ext-pdo": "*",
+    "doctrine/doctrine-bundle": "^2.13",
+    "doctrine/doctrine-migrations-bundle": "^3.4",
+    "doctrine/orm": "^3.3",
+    "symfony/asset": "7.4.*",
+    "symfony/console": "7.4.*",
+    "symfony/dotenv": "7.4.*",
+    "symfony/flex": "^2.5",
+    "symfony/form": "7.4.*",
+    "symfony/framework-bundle": "7.4.*",
+    "symfony/lock": "7.4.*",
+    "symfony/mailer": "7.4.*",
+    "symfony/monolog-bundle": "^3.10",
+    "symfony/password-hasher": "7.4.*",
+    "symfony/rate-limiter": "7.4.*",
+    "symfony/runtime": "7.4.*",
+    "symfony/security-bundle": "7.4.*",
+    "symfony/translation": "7.4.*",
+    "symfony/twig-bundle": "7.4.*",
+    "symfony/uid": "7.4.*",
+    "symfony/validator": "7.4.*",
+    "symfony/yaml": "7.4.*",
+    "twig/extra-bundle": "^3.15",
+    "twig/twig": "^3.15",
+    "twbs/bootstrap": "^5.3"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "^2.1",
+    "phpstan/phpstan-doctrine": "^2.0",
+    "phpunit/phpunit": "^11.5",
+    "symfony/browser-kit": "7.4.*",
+    "symfony/css-selector": "7.4.*",
+    "symfony/phpunit-bridge": "7.4.*",
+    "symfony/web-profiler-bundle": "7.4.*"
   },
   "autoload": {
     "psr-4": {
-      "Sportlauf\\": "app/"
+      "App\\": "src/"
     }
   },
-  "suggest": {
-    "dompdf/dompdf": "Erzeugt echte PDF-Dateien fuer Ranglisten und Laufzettel."
+  "autoload-dev": {
+    "psr-4": {
+      "App\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": false,
+      "symfony/flex": true,
+      "symfony/runtime": true
+    },
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "extra": {
+    "symfony": {
+      "allow-contrib": false,
+      "require": "7.4.*"
+    }
   },
   "scripts": {
-    "test": "php tests/run.php"
+    "auto-scripts": {
+      "cache:clear": "symfony-cmd",
+      "assets:install %PUBLIC_DIR%": "symfony-cmd"
+    },
+    "post-install-cmd": ["@auto-scripts", "@assets:publish"],
+    "post-update-cmd": ["@auto-scripts", "@assets:publish"],
+    "assets:publish": "@php bin/publish-assets.php",
+    "test": "phpunit",
+    "analyse": "phpstan analyse"
   }
 }

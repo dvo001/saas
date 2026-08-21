@@ -1,0 +1,33 @@
+parameters:
+  app.install_lock_path: '%kernel.project_dir%/storage/installed.lock'
+  app.storage_path: '%kernel.project_dir%/storage'
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    bind:
+      $projectDirectory: '%kernel.project_dir%'
+
+  App\:
+    resource: '../src/'
+    exclude:
+      - '../src/Kernel.php'
+      - '../src/Core/Infrastructure/Doctrine/Entity/'
+
+  App\Core\Infrastructure\Installation\InstallationState:
+    arguments:
+      $lockPath: '%app.install_lock_path%'
+      $installerEnabled: '%env(bool:APP_INSTALLER_ENABLED)%'
+
+  App\Core\Infrastructure\Installation\EnvironmentWriter:
+    arguments:
+      $projectDirectory: '%kernel.project_dir%'
+
+  App\Core\Infrastructure\Installation\InstallationService:
+    arguments:
+      $projectDirectory: '%kernel.project_dir%'
+
+  App\Core\Infrastructure\Logging\SensitiveDataProcessor:
+    tags:
+      - { name: monolog.processor }

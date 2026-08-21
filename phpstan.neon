@@ -1,0 +1,11 @@
+includes:
+  - vendor/phpstan/phpstan-doctrine/extension.neon
+
+parameters:
+  level: 7
+  paths:
+    - src
+    - tests
+  excludePaths:
+    analyse:
+      - migrations
