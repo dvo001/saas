@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+{% block title %}Benutzer löschen{% endblock %}
+{% block body %}
+<p class="eyebrow">Erneute Authentifizierung</p>
+<h1 class="h2">{{ target.displayName }} löschen</h1>
+<p>Personendaten werden minimiert und das Konto dauerhaft deaktiviert. Historische Audit-Verweise bleiben anonym nachvollziehbar.</p>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+<div class="card border-0 shadow-sm"><div class="card-body"><form method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token('delete_user_' ~ target.publicId) }}">
+    <label class="form-label" for="password">Ihr aktuelles Passwort</label>
+    <input class="form-control mb-3" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+    <button class="btn btn-danger" type="submit">Endgültig löschen</button>
+    <a class="btn btn-outline-secondary" href="{{ path('tenant_users', {slug: tenant.slug}) }}">Abbrechen</a>
+</form></div></div>
+{% endblock %}

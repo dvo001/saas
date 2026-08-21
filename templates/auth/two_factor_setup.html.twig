@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+{% block title %}Zwei-Faktor-Authentisierung einrichten{% endblock %}
+{% block shell %}
+<main id="main-content" class="container py-5 auth-shell">
+    <div class="card shadow-sm border-0"><div class="card-body p-4 p-md-5">
+        <p class="eyebrow">Kontoschutz</p>
+        <h1 class="h3">Zwei-Faktor-Authentisierung einrichten</h1>
+        <p class="text-body-secondary">Hinterlegen Sie den Schlüssel in einer TOTP-kompatiblen Authenticator-App und bestätigen Sie den ersten Code.</p>
+        {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+        <dl class="mb-4"><dt>Geheimer Schlüssel</dt><dd><code class="user-select-all">{{ secret }}</code></dd><dt>Einrichtungs-URI</dt><dd class="text-break"><code class="user-select-all">{{ provisioning_uri }}</code></dd></dl>
+        <form method="post">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('totp_setup') }}">
+            <label class="form-label" for="code">6-stelliger Code</label>
+            <input class="form-control mb-3" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" required autofocus>
+            <button class="btn btn-primary" type="submit">2FA aktivieren</button>
+        </form>
+    </div></div>
+</main>
+{% endblock %}

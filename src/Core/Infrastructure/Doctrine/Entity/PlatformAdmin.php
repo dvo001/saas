@@ -37,6 +37,18 @@ class PlatformAdmin implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?int $id = null;
 
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $totpSecretEncrypted = null;
+
+    #[ORM\Column(options: ['default' => 0])]
+    private int $failedLoginCount = 0;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lockedUntil = null;
+
+    #[ORM\Column(options: ['default' => 1])]
+    private int $authVersion = 1;
+
     public function getId(): ?int
     {
         return $this->id;

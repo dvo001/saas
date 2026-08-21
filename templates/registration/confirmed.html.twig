@@ -1,0 +1,3 @@
+{% extends 'base.html.twig' %}
+{% block title %}Registrierung bestätigt{% endblock %}
+{% block shell %}<main id="main-content" class="container py-5 auth-shell"><div class="card border-0 shadow-sm"><div class="card-body p-5 text-center"><div class="success-mark">✓</div><h1 class="h3">Ihr Verein ist bereit</h1><p>Die 14-tägige Testphase für <strong>{{ tenant.name }}</strong> hat jetzt begonnen.</p><a class="btn btn-primary" href="{{ path('tenant_login', {slug: tenant.slug}) }}">Anmelden und 2FA einrichten</a></div></div></main>{% endblock %}

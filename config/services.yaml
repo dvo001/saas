@@ -31,3 +31,21 @@ services:
   App\Core\Infrastructure\Logging\SensitiveDataProcessor:
     tags:
       - { name: monolog.processor }
+
+  App\Core\Infrastructure\Security\SecretCipher:
+    arguments:
+      $appSecret: '%kernel.secret%'
+
+  App\Core\Infrastructure\Security\AuditLogger:
+    arguments:
+      $appSecret: '%kernel.secret%'
+
+  App\Core\Presentation\Web\EventSubscriber\AuthRateLimitSubscriber:
+    arguments:
+      $recoveryLimiter: '@limiter.account_recovery'
+      $invitationLimiter: '@limiter.invitation'
+      $twoFactorLimiter: '@limiter.two_factor'
+      $registrationLimiter: '@limiter.registration'
+
+  App\Core\Infrastructure\Tenancy\EventAccess:
+    public: true
