@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Installation abgeschlossen · {{ platform_name }}{% endblock %}
+
+{% block shell %}
+<main id="main-content" class="container py-5">
+    <div class="install-shell mx-auto text-center">
+        <div class="success-mark" aria-hidden="true">✓</div>
+        <span class="eyebrow">Installation abgeschlossen</span>
+        <h1 class="display-6 fw-semibold mt-2">{{ platform_name }} ist bereit</h1>
+        <p class="lead text-body-secondary">Migrationen und Grunddaten wurden angelegt. Der Web-Installer ist dauerhaft gesperrt.</p>
+        <a class="btn btn-primary btn-lg mt-3" href="/">Zur Plattform</a>
+    </div>
+</main>
+{% endblock %}

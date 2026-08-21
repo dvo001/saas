@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Installation · {{ app_name }}{% endblock %}
+
+{% block shell %}
+<main id="main-content" class="container py-5">
+    <div class="install-shell mx-auto">
+        <div class="mb-4">
+            <span class="eyebrow">Ersteinrichtung</span>
+            <h1 class="display-6 fw-semibold mt-2">Plattform installieren</h1>
+            <p class="lead text-body-secondary">System prüfen, Datenbank verbinden und den ersten Plattformadmin sicher anlegen.</p>
+        </div>
+
+        {% if errors %}
+            <div class="alert alert-danger" role="alert">
+                <h2 class="h6">Installation noch nicht möglich</h2>
+                <ul class="mb-0">
+                    {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <section class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5">1. Systemvoraussetzungen</h2>
+                <div class="row g-2 mt-2">
+                    {% for check in checks %}
+                        <div class="col-md-6">
+                            <div class="requirement {{ check.met ? 'requirement-ok' : 'requirement-fail' }}">
+                                <span aria-hidden="true">{{ check.met ? '✓' : '!' }}</span>
+                                <span><strong>{{ check.name }}</strong><small>{{ check.detail }}</small></span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <form method="post" class="card shadow-sm border-0">
+            <div class="card-body p-4 p-lg-5">
+                <input type="hidden" name="_token" value="{{ csrf_token('installation') }}">
+                <h2 class="h5 mb-3">2. Datenbank</h2>
+                <div class="row g-3">
+                    <div class="col-md-8"><label class="form-label" for="db_host">Host</label><input class="form-control" id="db_host" name="db_host" value="{{ app.request.request.get('db_host', '127.0.0.1') }}" required></div>
+                    <div class="col-md-4"><label class="form-label" for="db_port">Port</label><input class="form-control" id="db_port" name="db_port" type="number" value="{{ app.request.request.get('db_port', '3306') }}" min="1" max="65535" required></div>
+                    <div class="col-md-6"><label class="form-label" for="db_name">Datenbankname</label><input class="form-control" id="db_name" name="db_name" value="{{ app.request.request.get('db_name') }}" required></div>
+                    <div class="col-md-6"><label class="form-label" for="db_server_version">MariaDB-Version</label><input class="form-control" id="db_server_version" name="db_server_version" value="{{ app.request.request.get('db_server_version', '10.6.0-MariaDB') }}" required></div>
+                    <div class="col-md-6"><label class="form-label" for="db_user">Benutzer</label><input class="form-control" id="db_user" name="db_user" autocomplete="username" value="{{ app.request.request.get('db_user') }}" required></div>
+                    <div class="col-md-6"><label class="form-label" for="db_password">Passwort</label><input class="form-control" id="db_password" name="db_password" type="password" autocomplete="current-password" required></div>
+                </div>
+
+                <hr class="my-4">
+                <h2 class="h5 mb-3">3. Plattform</h2>
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label" for="platform_name">Plattformname</label><input class="form-control" id="platform_name" name="platform_name" value="{{ app.request.request.get('platform_name', 'Vereinssport Schweiz') }}" maxlength="120" required></div>
+                    <div class="col-md-6"><label class="form-label" for="base_domain">Basis-URL</label><input class="form-control" id="base_domain" name="base_domain" type="url" placeholder="https://sport.example.ch" value="{{ app.request.request.get('base_domain') }}" required></div>
+                    <div class="col-12"><label class="form-label" for="mailer_dsn">SMTP/Mailer-DSN <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="mailer_dsn" name="mailer_dsn" value="{{ app.request.request.get('mailer_dsn', 'null://null') }}"><div class="form-text">Kann später in der Serverkonfiguration ergänzt werden.</div></div>
+                </div>
+
+                <hr class="my-4">
+                <h2 class="h5 mb-3">4. Erster Plattformadmin</h2>
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label" for="admin_email">E-Mail</label><input class="form-control" id="admin_email" name="admin_email" type="email" autocomplete="email" value="{{ app.request.request.get('admin_email') }}" required></div>
+                    <div class="col-md-6"><label class="form-label" for="admin_password">Passwort</label><input class="form-control" id="admin_password" name="admin_password" type="password" minlength="12" autocomplete="new-password" required><div class="form-text">Mindestens 12 Zeichen.</div></div>
+                </div>
+            </div>
+            <div class="card-footer bg-body-tertiary p-4 text-end">
+                <button class="btn btn-primary btn-lg" type="submit" {{ requirements_met ? '' : 'disabled' }}>Sicher installieren</button>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Fehler · {{ app_name }}{% endblock %}
+
+{% block shell %}
+<main id="main-content" class="container py-5">
+    <div class="install-shell mx-auto">
+        <span class="eyebrow">Fehler {{ status }}</span>
+        <h1 class="display-6 fw-semibold mt-2">{{ status == 404 ? 'Seite nicht gefunden' : 'Das hat leider nicht funktioniert' }}</h1>
+        <p class="lead text-body-secondary">{{ status == 404 ? 'Die angeforderte Seite ist nicht vorhanden.' : 'Bitte versuche es später erneut oder melde die Fehlerreferenz dem Support.' }}</p>
+        {% if reference %}<p class="error-reference">Fehlerreferenz: <code>{{ reference }}</code></p>{% endif %}
+        <a class="btn btn-primary" href="/">Zur Startseite</a>
+    </div>
+</main>
+{% endblock %}

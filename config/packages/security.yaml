@@ -1,0 +1,16 @@
+security:
+  password_hashers:
+    App\Core\Infrastructure\Doctrine\Entity\PlatformAdmin: 'auto'
+  providers:
+    platform_admins:
+      entity:
+        class: App\Core\Infrastructure\Doctrine\Entity\PlatformAdmin
+        property: email
+  firewalls:
+    dev:
+      pattern: ^/(_(profiler|wdt)|assets)/
+      security: false
+    main:
+      lazy: true
+      provider: platform_admins
+  access_control: []

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de-CH" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
+    <script src="/assets/js/theme.js" defer></script>
+</head>
+<body>
+    <a class="visually-hidden-focusable" href="#main-content">Zum Inhalt springen</a>
+    {% block shell %}
+        <nav class="navbar navbar-expand-lg border-bottom bg-body sticky-top" aria-label="Hauptnavigation">
+            <div class="container-xl">
+                <a class="navbar-brand fw-semibold" href="/">{{ app_name }}</a>
+                <button class="navbar-toggler" type="button" data-nav-toggle aria-controls="main-navigation" aria-expanded="false" aria-label="Navigation öffnen">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="main-navigation" data-nav>
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link active" href="/">{{ 'nav.dashboard'|trans }}</a></li>
+                        <li class="nav-item"><span class="nav-link disabled">{{ 'nav.events'|trans }}</span></li>
+                        <li class="nav-item"><span class="nav-link disabled">{{ 'nav.master_data'|trans }}</span></li>
+                    </ul>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-theme-toggle aria-label="Farbschema wechseln">◐ <span>Darstellung</span></button>
+                </div>
+            </div>
+        </nav>
+        <main id="main-content" class="container-xl py-4 py-lg-5">
+            {% block body %}{% endblock %}
+        </main>
+    {% endblock %}
+</body>
+</html>

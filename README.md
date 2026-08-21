@@ -1,202 +1,90 @@
-# Sportanlaesse
+# Vereinssport Schweiz
 
-Mandantenfaehige LAMP-Webapplikation fuer Sportanlaesse. Die Plattform ist fuer
-mehrere Veranstalter/Organisationen und mehrere Sportarten vorbereitet, darunter
-Laufanlaesse, Fussballturniere, Leichtathletik, Judo und freie Formate.
+Modulare SaaS-Plattform für kleine Schweizer Sportvereine. Version 1 wird für
+Laufanlässe und Fussballturniere entwickelt.
 
-Der Lauf-Modus enthaelt bereits die vollstaendige Zeitmessungslogik mit
-Teilnehmererfassung, Qualifikationslaeufen, Finalplaetzen, Finalzeiten,
-Ranglisten, Laufzetteln und CSV-Export. Weitere Sportarten koennen als eigene
-Wertungsmodule auf dem SaaS-Kern aufgebaut werden.
+Der aktuelle Stand ist **Milestone 1 (Application Core)**. Enthalten sind das
+Symfony-Grundgerüst, sichere Konfiguration, versionierte Migrationen,
+Fehlerreferenzen, deutsche i18n-Grundlage, responsives Light/Dark-Layout,
+private Dateispeicherung, Web-Installer und versionierte Plattform-Grundwerte.
 
-## SaaS- und Multi-Sport-Kern
+## Technischer Stack
 
-- Organisationen/Mandanten mit eigener Datenisolation
-- Benutzer mit Login und Mitgliedschaft pro Organisation
-- Rollen-Grundlage: `owner`, `admin`, `operator`, `viewer`
-- Plan-/Subscription-Grundlage: `starter`, `club`, `pro`
-- Einladungs-, Subscription- und Audit-Log-Tabellen fuer Betrieb, Support und Compliance
-- CSRF-Schutz fuer POST-Formulare und gehaertete Session-Cookies
-- Team-Einladungen per Token-Link, Passwort-Reset-Grundflow und Installations-Claim fuer migrierte Daten
-- Rollen- und Planlimit-Durchsetzung in den Schreibfluesse
-- Sportartenkatalog: Lauf, Fussballturnier, Leichtathletik, Judo, andere Sportart
-- Event-Metadaten je Sportart mit Wertungsmodi: Zeitwertung, Turnier, Punkte, K.-o.-Raster, freie Wertung
-- bestehende Laufwertung nur fuer zeitbasierte Anlaesse sichtbar
-- generische Multi-Sport-Erfassung fuer Teams/Starter, Disziplinen, Begegnungen/Kaempfe und Punkte-/Rangresultate
+- PHP 8.2 oder neuer
+- Symfony 7.4 LTS, Twig und Doctrine
+- MariaDB 10.6 oder neuer
+- Apache; ausschließlich `public/` als DocumentRoot
+- lokal ausgeliefertes Bootstrap 5.3 und Vanilla JavaScript
+- keine dauerhaften Node-, WebSocket- oder Worker-Prozesse
 
-## Systemvoraussetzungen
+Die Entscheidungen und Modulgrenzen sind in [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md)
+dokumentiert.
 
-- Ubuntu Server 24.04 LTS oder neuer
-- Apache 2 mit Rewrite-Modul
-- MariaDB oder MySQL
-- PHP 8.1 oder neuer mit PDO MySQL
-- Optional Composer und `dompdf/dompdf` fuer echte PDF-Ausgaben
+## Installation
 
-## Installation Kurzfassung
+1. Leere MariaDB-Datenbank und einen darauf berechtigten Benutzer erstellen.
+2. Abhängigkeiten installieren:
+
+   ```bash
+   composer install --no-interaction
+   ```
+
+3. Apache-DocumentRoot auf `public/` setzen und Schreibrechte für `var/`,
+   `storage/` sowie das Projektverzeichnis während der Installation gewähren.
+4. `/install` im Browser öffnen.
+5. Systemcheck, Datenbank, Plattformdaten und ersten Plattformadmin erfassen.
+
+Der Installer führt die Doctrine-Migrationen aus, schreibt Secrets in die
+nicht versionierte `.env.local` und erzeugt `storage/installed.lock`. Danach ist
+er gesperrt und setzt `APP_INSTALLER_ENABLED=0`. Für eine bewusste erneute
+Freigabe müssen Sperrdatei und Serverkonfiguration manuell angepasst werden.
+
+Das Projektstammverzeichnis darf nicht als DocumentRoot verwendet werden. Die
+Root-`.htaccess` sperrt den Zugriff vorsorglich vollständig.
+
+## Lokale Entwicklung
 
 ```bash
-cp config/database.example.php config/database.php
-mysql -u root -p < database/schema.sql
+composer install
 php -S 127.0.0.1:8080 -t public
 ```
 
-Fuer eine Serverinstallation auf Ubuntu 26.04 liegt ein Skript bereit:
+Danach `http://127.0.0.1:8080/install` öffnen. Für lokale Datenbankwerte kann
+vorab eine nicht versionierte `.env.local` angelegt werden.
+
+## Updates und Migrationen
 
 ```bash
-chmod +x scripts/setup_sportlauf_lamp_ubuntu_26_04.sh
-sudo scripts/setup_sportlauf_lamp_ubuntu_26_04.sh
+composer install --no-dev --classmap-authoritative --no-interaction
+APP_ENV=prod APP_DEBUG=0 php bin/console doctrine:migrations:migrate --no-interaction
+APP_ENV=prod APP_DEBUG=0 php bin/console cache:clear
 ```
 
-Mit eigenem Datenbankpasswort:
+`composer install` veröffentlicht auch die lokalen Bootstrap-Assets. Schema-
+Updates erfolgen ausschließlich über `migrations/`; alte vollständige
+Schemaimporte werden nicht mehr verwendet.
+
+## Qualitätschecks
 
 ```bash
-sudo DB_PASS='EinStarkesPasswort' APP_DOMAIN='sportlauf.local' \
-  scripts/setup_sportlauf_lamp_ubuntu_26_04.sh
+composer validate --strict
+vendor/bin/phpunit
+vendor/bin/phpstan analyse
+php bin/console lint:container
+php bin/console lint:yaml config translations
+php bin/console lint:twig templates
 ```
 
-## Datenbank
+Die verpflichtenden Mandanten-Isolationstests werden mit dem Mandantenmodell in
+Milestone 2 eingeführt und blockieren danach jeden Merge.
 
-Beispiel:
+## Private Dateien und Secrets
 
-```sql
-CREATE DATABASE sportlauf CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'sportlauf_user'@'localhost' IDENTIFIED BY 'CHANGE_ME_STRONG_PASSWORD';
-GRANT ALL PRIVILEGES ON sportlauf.* TO 'sportlauf_user'@'localhost';
-FLUSH PRIVILEGES;
-```
+- Secrets gehören ausschließlich in `.env.local` oder Server-Umgebungsvariablen.
+- Uploads liegen unter `storage/uploads/`, Exporte unter `storage/exports/`.
+- Beide Verzeichnisse liegen außerhalb von `public/` und werden später nur über
+  autorisierte Controller ausgeliefert.
+- Produktionslogs liegen unter `var/log/` und enthalten für technische Fehler
+  eine Benutzer-referenzierbare Fehler-ID.
 
-Schema importieren:
-
-```bash
-mysql -u sportlauf_user -p sportlauf < database/schema.sql
-mysql -u sportlauf_user -p sportlauf < database/seed.sql
-```
-
-`database/seed.sql` ist fuer lokale Demo- und Testsysteme gedacht und kann
-mehrfach ausgefuehrt werden. Er legt die isolierte Organisation
-`demo-sportverein`, einen Laufanlass mit 24 Teilnehmenden und Finalresultaten
-sowie ein kleines Fussballturnier an. Demo-Login:
-
-```text
-E-Mail:  owner@demo.test
-Passwort: Demo1234!
-```
-
-Weitere Rollen koennen mit `admin@demo.test`, `operator@demo.test` und
-`viewer@demo.test` getestet werden; alle Demo-Konten verwenden dasselbe
-Passwort. Den Seed wegen dieser bekannten Zugangsdaten nicht in einer
-Produktivdatenbank importieren.
-
-Bei einer bestehenden Installation einmalig die Anlass-Konfiguration ergaenzen:
-
-```bash
-mysql -u sportlauf_user -p sportlauf < database/migrations/20260706_event_configuration.sql
-```
-
-Fuer den SaaS-/Multi-Sport-Umbau bestehende Installationen anschliessend migrieren:
-
-```bash
-mysql -u sportlauf_user -p sportlauf < database/migrations/20260809_saas_multisport.sql
-```
-
-Bei bestehenden Daten ohne Benutzer kann die erste Person die migrierte
-Standard-Organisation einmalig ueber `/claim` uebernehmen.
-
-Ein optionales Anlasslogo kann in `public/assets/img/` abgelegt und beim Anlass
-beispielsweise als `/assets/img/mein-logo.png` eingetragen werden.
-
-## Apache VirtualHost
-
-`public/` muss der einzige DocumentRoot sein:
-
-```apache
-<VirtualHost *:80>
-    ServerName sportlauf.local
-    DocumentRoot /var/www/sportlauf/public
-
-    <Directory /var/www/sportlauf/public>
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-```
-
-## Externer Hoster
-
-Fuer den Betrieb bei einem externen PHP/MySQL-Hoster gibt es eine eigene
-Anleitung:
-
-```text
-docs/EXTERNER_HOSTER.md
-```
-
-Kurzfassung:
-
-- Ideal: Domain-DocumentRoot auf `public/` setzen.
-- Alternativ: Projekt in den Webordner hochladen; die Root-`.htaccess` leitet
-  intern nach `public/index.php` weiter und sperrt private Ordner.
-- `config/database.hosting.php` nach `config/database.php` kopieren und die
-  Datenbankdaten des Hosters eintragen.
-- `database/schema.sql` in phpMyAdmin/Adminer importieren.
-
-## Bedienablauf
-
-1. Benutzerkonto registrieren und Organisation erstellen.
-2. Anlass mit Sportart, Disziplin/Format und Wertungsmodus erstellen.
-3. Anlass in der linken Navigation auswaehlen.
-4. Fuer Lauf-/Zeitwertungsanlaesse Jahrgangsgruppen erfassen oder von einem bestehenden Anlass uebernehmen.
-5. Teilnehmer mit Laufzettel-ID erfassen.
-6. Qualifikationszeiten separat oder per Schnellerfassung erfassen.
-7. Qualifikationsrangliste pruefen.
-8. Falls konfiguriert: Finalisten vorschlagen, bestaetigen und Finalzeiten erfassen.
-9. Endrangliste drucken, als PDF anzeigen oder CSV exportieren.
-
-Fuer Fussball, Leichtathletik, Judo und weitere Sportarten steht unter
-`/sport-results` eine generische Erfassung fuer Teams/Starter, Disziplinen,
-Begegnungen/Kaempfe und freie Resultate bereit. Sportartspezifische Auswertungen
-koennen darauf aufbauend weiter spezialisiert werden.
-
-## SaaS-Betrieb
-
-- `owner`: Plan/Billing und Teamverwaltung
-- `admin`: Teamverwaltung und Loeschaktionen
-- `operator`: Anlaesse und Resultate bearbeiten
-- `viewer`: Lesender Zugriff
-
-Subscriptions werden aktuell intern/manuell verwaltet. Fuer automatisierte
-Zahlungen kann spaeter ein Provider wie Stripe an die Tabelle `subscriptions`
-und Provider-Webhook-Felder angeschlossen werden. Token-Links fuer Einladungen
-und Passwort-Reset werden in der Oberflaeche erzeugt; fuer produktiven Betrieb
-sollte daran ein Mailversand angeschlossen werden.
-
-## PDF
-
-Ohne weitere Abhaengigkeit liefert `/rankings/pdf` und `/sheets/pdf` eine
-druckbare HTML-Ansicht. Fuer echte PDF-Dateien:
-
-```bash
-composer require dompdf/dompdf
-```
-
-## Tests
-
-```bash
-php tests/run.php
-```
-
-## Backup und Restore
-
-```bash
-mysqldump -u sportlauf_user -p sportlauf > sportlauf_backup_$(date +%Y%m%d_%H%M%S).sql
-mysql -u sportlauf_user -p sportlauf < backup.sql
-```
-
-## Fehlersuche
-
-```bash
-sudo systemctl status apache2
-sudo systemctl status mariadb
-php -v
-apache2ctl configtest
-sudo tail -f /var/log/apache2/sportlauf_error.log
-```
+Demo-Seeds werden niemals automatisch in Produktion geladen.
