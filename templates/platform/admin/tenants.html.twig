@@ -1,0 +1,9 @@
+{% extends 'platform/base.html.twig' %}
+{% block title %}Vereine · Plattformadministration{% endblock %}
+{% block platform_body %}
+<div class="mb-4"><p class="eyebrow">Plattform</p><h1 class="h2">Vereine</h1><p class="text-body-secondary">Supportzugriffe sind zeitlich begrenzt und werden in beiden Audit-Kontexten protokolliert.</p></div>
+{% for type, messages in app.flashes %}{% for message in messages %}<div class="alert alert-{{ type }}">{{ message }}</div>{% endfor %}{% endfor %}
+<div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Verein</th><th>Status</th><th>Testmodul</th><th>Support</th><th><span class="visually-hidden">Aktionen</span></th></tr></thead><tbody>
+{% for tenant in tenants %}<tr><td><strong>{{ tenant.name }}</strong><small class="d-block text-body-secondary">/v/{{ tenant.slug }}</small></td><td>{{ tenant.status.value }}</td><td>{{ tenant.trialModule.label }}</td><td>{{ tenant.supportImpersonationEnabled ? 'Freigegeben' : 'Deaktiviert' }}</td><td class="text-end">{% if tenant.supportImpersonationEnabled %}<a class="btn btn-sm btn-outline-primary" href="{{ path('platform_tenant_support', {publicId: tenant.publicId}) }}">Supportmodus starten</a>{% else %}<span class="text-body-secondary">Nicht verfügbar</span>{% endif %}</td></tr>{% else %}<tr><td colspan="5" class="text-center py-4 text-body-secondary">Noch keine Vereine vorhanden.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

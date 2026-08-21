@@ -3,12 +3,22 @@ security:
     App\Core\Infrastructure\Doctrine\Entity\PlatformAdmin: 'auto'
     App\Core\Infrastructure\Doctrine\Entity\TenantUser: 'auto'
   providers:
+    platform_admins:
+      id: App\Core\Infrastructure\Security\PlatformAdminProvider
     tenant_users:
       id: App\Core\Infrastructure\Security\TenantUserProvider
   firewalls:
     dev:
       pattern: ^/(_(profiler|wdt)|assets)/
       security: false
+    platform:
+      pattern: ^/platform(?:/|$)
+      lazy: true
+      provider: platform_admins
+      custom_authenticator: App\Core\Infrastructure\Security\PlatformLoginAuthenticator
+      login_throttling:
+        max_attempts: 5
+        interval: '15 minutes'
     tenant:
       pattern: ^/v/
       lazy: true
@@ -27,6 +37,11 @@ security:
     public:
       security: false
   access_control:
+    - { path: '^/platform/login$', roles: PUBLIC_ACCESS }
+    - { path: '^/platform/einladung/', roles: PUBLIC_ACCESS }
+    - { path: '^/platform/2fa', roles: ROLE_PLATFORM_ADMIN }
+    - { path: '^/platform/logout$', roles: ROLE_PLATFORM_ADMIN }
+    - { path: '^/platform', roles: ROLE_PLATFORM_ADMIN }
     - { path: '^/v/[a-z0-9-]+/login$', roles: PUBLIC_ACCESS }
     - { path: '^/v/[a-z0-9-]+/(passwort-vergessen|owner-entsperren)$', roles: PUBLIC_ACCESS }
     - { path: '^/v/[a-z0-9-]+/2fa', roles: ROLE_TENANT_USER }

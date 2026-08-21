@@ -8,6 +8,7 @@ use App\Core\Infrastructure\Doctrine\Entity\Tenant;
 use App\Core\Infrastructure\Doctrine\Entity\TenantUser;
 use App\Core\Infrastructure\Security\AuditLogger;
 use App\Core\Infrastructure\Security\OneTimeTokenStore;
+use App\Core\Infrastructure\System\CronRunMonitor;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -17,6 +18,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Uid\Uuid;
 
 #[AsCommand(name: 'app:registrations:maintain', description: 'Remind and remove unconfirmed club registrations.')]
 final class MaintainRegistrationsCommand extends Command
@@ -28,12 +30,16 @@ final class MaintainRegistrationsCommand extends Command
         private readonly MailerInterface $mailer,
         private readonly UrlGeneratorInterface $urls,
         private readonly AuditLogger $audit,
+        private readonly CronRunMonitor $cronRuns,
     ) {
         parent::__construct();
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $jobName = 'registrations.maintain';
+        $runId = $this->cronRuns->start($jobName);
+        try {
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $rows = $this->connection->fetchAllAssociative(<<<'SQL'
             SELECT t.id AS tenant_id, t.public_id, t.created_at, t.registration_reminder_sent_at,
@@ -70,7 +76,15 @@ final class MaintainRegistrationsCommand extends Command
         }
 
         $output->writeln(sprintf('%d reminder(s) sent, %d expired registration(s) deleted.', $reminded, $deleted));
+        $this->cronRuns->succeed($runId, $jobName, ['reminded' => $reminded, 'deleted' => $deleted]);
 
         return Command::SUCCESS;
+        } catch (\Throwable $exception) {
+            $errorReference = Uuid::v7()->toRfc4122();
+            $this->cronRuns->fail($runId, $jobName, $errorReference);
+            $output->writeln('<error>Cronjob fehlgeschlagen. Fehlerreferenz: '.$errorReference.'</error>');
+
+            throw $exception;
+        }
     }
 }

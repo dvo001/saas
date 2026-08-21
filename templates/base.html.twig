@@ -28,6 +28,14 @@
                 </div>
             </div>
         </nav>
+        {% if is_granted('ROLE_SUPPORT_IMPERSONATION') %}
+            <div class="alert alert-danger rounded-0 border-start-0 border-end-0 mb-0 sticky-top" role="alert">
+                <div class="container-xl d-flex flex-wrap gap-3 align-items-center justify-content-between">
+                    <div><strong>Supportmodus aktiv</strong> · Du arbeitest im Verein {{ app.user.tenant.name }} als {{ app.user.displayName }}.{% if app.request.attributes.get('support_session') %} Grund: {{ app.request.attributes.get('support_session').reason }}{% endif %}</div>
+                    <form method="post" action="{{ path('tenant_support_end', {slug: app.user.tenant.slug}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('end_support') }}"><button class="btn btn-danger btn-sm" type="submit">Supportmodus beenden</button></form>
+                </div>
+            </div>
+        {% endif %}
         <main id="main-content" class="container-xl py-4 py-lg-5">
             {% block body %}{% endblock %}
         </main>

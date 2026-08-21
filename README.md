@@ -3,10 +3,10 @@
 Modulare SaaS-Plattform für kleine Schweizer Sportvereine. Version 1 wird für
 Laufanlässe und Fussballturniere entwickelt.
 
-Der aktuelle Stand ist **Milestone 2 (Authentifizierung, Mandanten und Rollen)**.
-Zusätzlich zum Application Core sind Vereinsregistrierung, mandantenspezifischer
-Login, E-Mail- und Einladungstokens, Passwortreset, TOTP-2FA, Session- und
-Sperrregeln, Benutzerverwaltung, Ownerwechsel sowie eventbezogene Rollen vorhanden.
+Der aktuelle Stand ist **Milestone 3 (Plattformadministration)**. Zusätzlich zum
+Application Core und der vollständigen Vereinsauthentifizierung sind eine getrennte
+Plattform-Oberfläche, Plattformadmin-Verwaltung, begründeter Supportmodus,
+versionierte Einstellungen, Auditansichten, Wartungsmodus und Systemstatus vorhanden.
 
 ## Technischer Stack
 
@@ -90,6 +90,10 @@ Nicht bestätigte Registrierungen werden per Hosting-Cron gepflegt:
 ```bash
 php bin/console app:registrations:maintain
 ```
+
+Der Lauf wird in `cron_runs` mit Start, Ende, Status und allfälliger
+Fehlerreferenz protokolliert. Details zu Betrieb und Notfall-Recovery stehen in
+[docs/MILESTONE_3.md](docs/MILESTONE_3.md).
 
 ## Private Dateien und Secrets
 
