@@ -1,0 +1,8 @@
+{% extends 'platform/base.html.twig' %}
+{% block title %}Supportzugriff · {{ tenant.name }}{% endblock %}
+{% block platform_body %}
+<div class="row justify-content-center"><div class="col-xl-7"><p class="eyebrow">Supportmodus</p><h1 class="h2">{{ tenant.name }}</h1><p>Du erhältst für höchstens zwei Stunden Administratorzugriff im Verein. Der Grund und Start sowie Ende werden protokolliert; im Vereinsbereich bleibt ein auffälliger Hinweis sichtbar.</p>
+{% if not tenant.supportImpersonationEnabled %}<div class="alert alert-warning">Der Owner dieses Vereins hat den Supportzugriff deaktiviert.</div>{% endif %}
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+<div class="card border-0 shadow-sm"><div class="card-body p-4"><form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token('support_' ~ tenant.publicId) }}"><div class="mb-3"><label class="form-label" for="reason">Grund des Zugriffs</label><textarea class="form-control" id="reason" name="reason" rows="4" maxlength="500" minlength="10" required></textarea><div class="form-text">Keine Passwörter oder besonders schützenswerten Personendaten eingeben.</div></div><button class="btn btn-danger" type="submit" {% if not tenant.supportImpersonationEnabled %}disabled{% endif %}>Zeitlich begrenzten Supportmodus starten</button> <a class="btn btn-outline-secondary" href="{{ path('platform_tenants') }}">Abbrechen</a></form></div></div></div></div>
+{% endblock %}

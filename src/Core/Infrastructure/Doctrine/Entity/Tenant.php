@@ -62,6 +62,7 @@ class Tenant
     public function getStatus(): TenantStatus { return $this->status; }
     public function getTrialModule(): TrialModule { return $this->trialModule; }
     public function isSupportImpersonationEnabled(): bool { return $this->supportImpersonationEnabled; }
+    public function setSupportImpersonationEnabled(bool $enabled): void { $this->supportImpersonationEnabled = $enabled; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 
     public function confirm(\DateTimeImmutable $now): void

@@ -20,4 +20,15 @@ final class TenantRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['slug' => mb_strtolower(trim($slug))]);
     }
+
+    public function findByPublicId(string $publicId): ?Tenant
+    {
+        return $this->findOneBy(['publicId' => $publicId]);
+    }
+
+    /** @return list<Tenant> */
+    public function findForPlatformAdministration(): array
+    {
+        return $this->findBy([], ['name' => 'ASC']);
+    }
 }

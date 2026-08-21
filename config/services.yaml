@@ -40,6 +40,14 @@ services:
     arguments:
       $appSecret: '%kernel.secret%'
 
+  App\Core\Infrastructure\Support\SupportSessionService:
+    arguments:
+      $appSecret: '%kernel.secret%'
+
+  App\Core\Infrastructure\System\SystemStatusService:
+    arguments:
+      $mailerDsn: '%env(MAILER_DSN)%'
+
   App\Core\Presentation\Web\EventSubscriber\AuthRateLimitSubscriber:
     arguments:
       $recoveryLimiter: '@limiter.account_recovery'
@@ -49,3 +57,7 @@ services:
 
   App\Core\Infrastructure\Tenancy\EventAccess:
     public: true
+
+  App\Core\Presentation\Cli\PlatformAdminEmergencyUnlockCommand:
+    arguments:
+      $emergencyRecoveryToken: '%env(PLATFORM_EMERGENCY_RECOVERY_TOKEN)%'
