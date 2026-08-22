@@ -41,7 +41,7 @@ jobs:
       RUN_DATABASE_TESTS: 1
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
