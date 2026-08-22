@@ -1,0 +1,9 @@
+{% extends 'base.html.twig' %}
+{% block title %}CSV-Vorschau{% endblock %}
+{% block body %}
+<h1 class="h2">CSV-Vorschau</h1>
+<div class="row g-3 mb-4"><div class="col"><div class="alert alert-success">{{ preview.valid|length }} gültige Zeilen</div></div><div class="col"><div class="alert alert-warning">{{ preview.duplicates|length }} mögliche Duplikate</div></div><div class="col"><div class="alert alert-danger">{{ preview.errors|length }} Fehler</div></div></div>
+{% if preview.errors %}<h2 class="h5">Fehler</h2><ul>{% for e in preview.errors %}<li>Zeile {{ e.line }}: {{ e.message }}</li>{% endfor %}</ul><a class="btn btn-outline-danger mb-3" href="{{ path('tenant_event_csv_errors',{slug:tenant.slug,id:event_id}) }}">Fehlerbericht herunterladen</a>{% endif %}
+<h2 class="h5">Erkannte Kategorien</h2><p>{{ preview.categories|join(', ') ?: 'Keine' }}</p>
+<form method="post" action="{{ path('tenant_event_csv_import',{slug:tenant.slug,id:event_id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('event_csv_import_'~event_id) }}"><label class="form-label">Mögliche Duplikate</label><select class="form-select mb-3" name="duplicates"><option value="skip">Überspringen</option><option value="new">Trotzdem neu anlegen</option><option value="update">Bestehenden Teilnehmer aktualisieren</option></select><p>Gültige Zeilen werden importiert, fehlerhafte übersprungen.</p><button class="btn btn-primary">Import bestätigen</button></form>
+{% endblock %}
