@@ -26,13 +26,15 @@ final readonly class PlatformSessionSubscriber implements EventSubscriberInterfa
         if (!$admin instanceof PlatformAdmin) { return; }
         $session = $request->getSession();
         $now = time();
-        if ($now - (int) $session->get('platform_last_activity_at', $now) > 7200) {
+        $startedAt = (int) $session->get('platform_auth_started_at', $now);
+        if ($now - (int) $session->get('platform_last_activity_at', $now) > 7200 || $now - $startedAt > 28800) {
             $this->tokens->setToken(null);
             $session->invalidate();
             $event->setResponse(new RedirectResponse($this->urls->generate('platform_login', ['expired' => 1])));
 
             return;
         }
+        $session->set('platform_auth_started_at', $startedAt);
         $session->set('platform_last_activity_at', $now);
         if ($session->get('platform_two_factor_passed') !== true && !in_array($request->attributes->get('_route'), self::CHALLENGE_ROUTES, true)) {
             $event->setResponse(new RedirectResponse($this->urls->generate($admin->hasTwoFactor() ? 'platform_2fa_verify' : 'platform_2fa_setup')));

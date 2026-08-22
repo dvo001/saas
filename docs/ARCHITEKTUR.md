@@ -242,14 +242,14 @@ aufgerufen werden.
 
 ## 11. Cron- und Jobarchitektur
 
-Jeder Job ist ein idempotentes Symfony-Console-Kommando, zum Beispiel
-`app:cron:run --job=subscription-expiry`. Der Hoster startet alle fünf Minuten einen
+Jeder Job läuft idempotent über das Symfony-Console-Kommando, zum Beispiel
+`app:cron:run --job=trials`. Der Hoster startet alle fünf Minuten einen
 Dispatcher. Datenbankbasierte Locks verhindern parallele Läufe. Lange Mengen werden
 in begrenzten Batches verarbeitet und können im nächsten Lauf fortgesetzt werden.
 
 `cron_runs` protokolliert Job, Start, Ende, Status, Zähler und eine nicht sensitive
 Fehlerreferenz. Der letzte erfolgreiche Lauf ermöglicht Überfälligkeitswarnungen.
-Löschjobs unterstützen zwingend `--dry-run`; manuelle kritische Läufe verwenden
+Löschjobs unterstützen zwingend `--preview`; manuelle kritische Läufe verwenden
 denselben Application-Service wie der Cron und erzeugen Audit-Einträge.
 
 Asynchrone Arbeit benötigt keinen Worker: Eine Datenbank-Outbox hält Mail- und

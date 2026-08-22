@@ -3,10 +3,10 @@
 Modulare SaaS-Plattform für kleine Schweizer Sportvereine. Version 1 wird für
 Laufanlässe und Fussballturniere entwickelt.
 
-Der aktuelle Stand ist **Milestone 3 (Plattformadministration)**. Zusätzlich zum
-Application Core und der vollständigen Vereinsauthentifizierung sind eine getrennte
-Plattform-Oberfläche, Plattformadmin-Verwaltung, begründeter Supportmodus,
-versionierte Einstellungen, Auditansichten, Wartungsmodus und Systemstatus vorhanden.
+Der aktuelle Stand ist **Milestone 11** und damit der vollständige Version-1-Umfang.
+Neben den Plattform- und Vereinsfunktionen sind Lauf- und Fussballveranstaltungen,
+Dokumente, Exporte, Aufbewahrung sowie die abschließende UI-, Security- und
+Deployment-Härtung umgesetzt.
 
 ## Technischer Stack
 
@@ -18,9 +18,10 @@ versionierte Einstellungen, Auditansichten, Wartungsmodus und Systemstatus vorha
 - keine dauerhaften Node-, WebSocket- oder Worker-Prozesse
 
 Die Entscheidungen und Modulgrenzen sind in [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md)
-dokumentiert.
+dokumentiert. Für den Betrieb gelten [Installation und Updates](docs/INSTALLATION.md)
+sowie die [Cyon-/Shared-Hosting-Anleitung](docs/DEPLOYMENT_SHARED_HOSTING.md).
 
-## Installation
+## Installation (Kurzfassung)
 
 1. Leere MariaDB-Datenbank und einen darauf berechtigten Benutzer erstellen.
 2. Abhängigkeiten installieren:
@@ -41,6 +42,9 @@ Freigabe müssen Sperrdatei und Serverkonfiguration manuell angepasst werden.
 
 Das Projektstammverzeichnis darf nicht als DocumentRoot verwendet werden. Die
 Root-`.htaccess` sperrt den Zugriff vorsorglich vollständig.
+
+Die vollständige Anleitung einschließlich manueller Konfiguration, Cronjob,
+Updates und Release-Prüfung steht in [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ## Lokale Entwicklung
 
@@ -75,6 +79,8 @@ php bin/console lint:yaml config translations
 php bin/console lint:twig templates
 ```
 
+Die projektspezifische Komplettprüfung ist als `composer verify` zusammengefasst.
+
 Die verpflichtenden Mandanten-Isolationstests sind seit Milestone 2 Merge-Blocker.
 Die schnelle Suite prüft den Architekturvertrag ohne Datenbank. Die vollständige
 Suite muss zusätzlich gegen eine frisch migrierte, ausschließlich für Tests
@@ -93,7 +99,8 @@ php bin/console app:registrations:maintain
 
 Der Lauf wird in `cron_runs` mit Start, Ende, Status und allfälliger
 Fehlerreferenz protokolliert. Details zu Betrieb und Notfall-Recovery stehen in
-[docs/MILESTONE_3.md](docs/MILESTONE_3.md).
+[docs/MILESTONE_3.md](docs/MILESTONE_3.md); der gemeinsame Hosting-Cronrunner ist
+in [docs/INSTALLATION.md](docs/INSTALLATION.md) dokumentiert.
 
 ## Private Dateien und Secrets
 

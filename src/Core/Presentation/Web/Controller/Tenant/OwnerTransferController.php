@@ -48,9 +48,11 @@ final class OwnerTransferController extends AbstractController
         ]);
     }
 
-    #[Route('/ownerwechsel/bestaetigen/{token}', name: 'owner_transfer_confirm', requirements: ['token' => '[A-Za-z0-9_-]+'], methods: ['GET'])]
+    #[Route('/ownerwechsel/bestaetigen/{token}', name: 'owner_transfer_confirm', requirements: ['token' => '[A-Za-z0-9_-]+'], methods: ['GET', 'POST'])]
     public function confirm(string $token, Request $request, OwnerTransferService $transfers): Response
     {
+        if (!$request->isMethod('POST')) { return $this->render('auth/token_confirmation.html.twig', ['title' => 'Ownerwechsel bestätigen', 'message' => 'Mit der Bestätigung übernimmst du die Owner-Rolle des Vereins.', 'button' => 'Ownerwechsel verbindlich bestätigen', 'csrf_id' => 'owner_transfer_confirm_'.$token]); }
+        if (!$this->isCsrfTokenValid('owner_transfer_confirm_'.$token, $request->request->getString('_csrf_token'))) { throw $this->createAccessDeniedException('Ungültiges Sicherheitstoken.'); }
         try {
             $tenant = $transfers->confirm($token, $request->getClientIp() ?? '');
 

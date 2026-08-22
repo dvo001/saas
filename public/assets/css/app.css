@@ -15,6 +15,24 @@ body {
     background: radial-gradient(circle at 90% 0, rgba(40, 167, 137, .1), transparent 32rem), var(--app-surface);
 }
 
+img,
+svg { max-width: 100%; height: auto; }
+
+.card-body,
+.alert,
+td,
+th { overflow-wrap: anywhere; }
+
+.table-responsive {
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+:focus-visible {
+    outline: .2rem solid color-mix(in srgb, var(--app-accent) 70%, white);
+    outline-offset: .15rem;
+}
+
 .navbar-brand,
 .eyebrow {
     color: var(--app-accent-strong);
@@ -90,5 +108,22 @@ body {
 
 @media (max-width: 767.98px) {
     .btn,
-    .form-control { min-height: 44px; }
+    .form-control,
+    .form-select { min-height: 44px; }
+
+    main.container-xl,
+    main.container-fluid { padding-inline: .75rem; }
+
+    .card { border-radius: .75rem; }
+    .card-body { padding: 1rem; }
+    .row > .col { flex: 0 0 auto; width: 100%; }
+    .d-flex.justify-content-between { flex-wrap: wrap; gap: .75rem; }
+    .table { font-size: .9rem; }
+    .table .form-control,
+    .table .form-select { min-width: 7rem; }
+    h1, .h1, .display-6 { hyphens: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }

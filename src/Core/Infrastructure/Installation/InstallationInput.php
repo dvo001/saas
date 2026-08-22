@@ -15,6 +15,7 @@ final readonly class InstallationInput
         public string $adminEmail,
         public string $adminPassword,
         public string $mailerDsn,
+        public string $mailFrom,
     ) {
     }
 
@@ -34,6 +35,7 @@ final readonly class InstallationInput
             mb_strtolower(trim($request->request->getString('admin_email'))),
             $request->request->getString('admin_password'),
             trim($request->request->getString('mailer_dsn', 'null://null')) ?: 'null://null',
+            mb_strtolower(trim($request->request->getString('mail_from'))),
         );
     }
 
@@ -67,6 +69,9 @@ final readonly class InstallationInput
         }
         if (!str_contains($this->mailerDsn, '://')) {
             $errors[] = 'Der Mailer-DSN ist ungültig.';
+        }
+        if (filter_var($this->mailFrom, FILTER_VALIDATE_EMAIL) === false) {
+            $errors[] = 'Die Absender-E-Mail-Adresse ist ungültig.';
         }
 
         return $errors;

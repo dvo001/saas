@@ -19,7 +19,7 @@ final readonly class TenantExportBuilder
         'football_field_periods', 'football_matches', 'football_publications', 'football_tiebreak_decisions',
     ];
 
-    public function __construct(private Connection $connection, private InvoiceDocumentService $invoiceDocuments, private string $projectDirectory) {}
+    public function __construct(private Connection $connection, private InvoiceDocumentService $invoiceDocuments, private CsvCellSanitizer $csvCells, private string $projectDirectory) {}
 
     public function build(int $tenantId, string $jobPublicId, \DateTimeImmutable $now): string
     {
@@ -95,7 +95,7 @@ final readonly class TenantExportBuilder
         $stream = fopen('php://temp', 'w+b');
         if ($stream === false) { throw new \RuntimeException('CSV konnte nicht erzeugt werden.'); }
         fwrite($stream, "\xEF\xBB\xBF"); fputcsv($stream, array_keys($rows[0]), ';', '"', '');
-        foreach ($rows as $row) { fputcsv($stream, array_map(static fn (mixed $value): string => is_scalar($value) || $value === null ? (string) $value : json_encode($value, JSON_THROW_ON_ERROR), array_values($row)), ';', '"', ''); }
+        foreach ($rows as $row) { fputcsv($stream, array_map($this->csvCells->escape(...), array_values($row)), ';', '"', ''); }
         rewind($stream); $content = stream_get_contents($stream); fclose($stream);
         return is_string($content) ? $content : '';
     }

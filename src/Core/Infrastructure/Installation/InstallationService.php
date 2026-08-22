@@ -121,7 +121,7 @@ final readonly class InstallationService
             'platform.name' => $input->platformName,
             'platform.base_domain' => rtrim($input->baseDomain, '/'),
             'platform.operator' => ['name' => '', 'address' => '', 'email' => ''],
-            'mail.system_sender' => '',
+            'mail.system_sender' => $input->mailFrom,
             'billing.vat' => ['enabled' => false, 'number' => null, 'standard_rate' => null],
             'billing.invoice_prefix' => 'RE',
             'billing.qr' => ['iban' => null, 'creditor' => null],

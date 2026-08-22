@@ -54,7 +54,8 @@
                 <div class="row g-3">
                     <div class="col-md-6"><label class="form-label" for="platform_name">Plattformname</label><input class="form-control" id="platform_name" name="platform_name" value="{{ app.request.request.get('platform_name', 'Vereinssport Schweiz') }}" maxlength="120" required></div>
                     <div class="col-md-6"><label class="form-label" for="base_domain">Basis-URL</label><input class="form-control" id="base_domain" name="base_domain" type="url" placeholder="https://sport.example.ch" value="{{ app.request.request.get('base_domain') }}" required></div>
-                    <div class="col-12"><label class="form-label" for="mailer_dsn">SMTP/Mailer-DSN <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="mailer_dsn" name="mailer_dsn" value="{{ app.request.request.get('mailer_dsn', 'null://null') }}"><div class="form-text">Kann später in der Serverkonfiguration ergänzt werden.</div></div>
+                    <div class="col-md-8"><label class="form-label" for="mailer_dsn">SMTP/Mailer-DSN <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="mailer_dsn" name="mailer_dsn" value="{{ app.request.request.get('mailer_dsn', 'null://null') }}"><div class="form-text">Kann später in der Serverkonfiguration ergänzt werden.</div></div>
+                    <div class="col-md-4"><label class="form-label" for="mail_from">Absender-E-Mail</label><input class="form-control" id="mail_from" name="mail_from" type="email" value="{{ app.request.request.get('mail_from') }}" placeholder="noreply@example.ch" required></div>
                 </div>
 
                 <hr class="my-4">

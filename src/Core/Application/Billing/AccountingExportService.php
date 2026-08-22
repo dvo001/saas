@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Core\Application\Billing;
 
+use App\Core\Application\Export\CsvCellSanitizer;
 use App\Core\Infrastructure\Doctrine\Entity\PlatformAdmin;
 use App\Core\Infrastructure\Security\AuditLogger;
 use Doctrine\DBAL\Connection;
 
 final readonly class AccountingExportService
 {
-    public function __construct(private Connection $connection, private AuditLogger $audit) {}
+    public function __construct(private Connection $connection, private AuditLogger $audit, private CsvCellSanitizer $csvCells) {}
 
     /**
      * @param array<string, mixed> $input
@@ -77,7 +78,7 @@ final readonly class AccountingExportService
         $headers = ['booked_at', 'record_type', 'document_number', 'tenant_public_id', 'tenant_name', 'status', 'currency', 'subtotal_minor', 'discount_minor', 'vat_minor', 'total_minor', 'payment_method', 'payment_reference'];
         $stream = fopen('php://temp', 'w+b'); if ($stream === false) { throw new \RuntimeException('CSV konnte nicht erstellt werden.'); }
         fwrite($stream, "\xEF\xBB\xBF"); fputcsv($stream, $headers, ';', '"', '');
-        foreach ($rows as $row) { fputcsv($stream, array_map(static fn (string $header): string => (string) ($row[$header] ?? ''), $headers), ';', '"', ''); }
+        foreach ($rows as $row) { fputcsv($stream, array_map(fn (string $header): string => $this->csvCells->escape($row[$header] ?? ''), $headers), ';', '"', ''); }
         rewind($stream); $content = stream_get_contents($stream); fclose($stream);
         return is_string($content) ? $content : '';
     }

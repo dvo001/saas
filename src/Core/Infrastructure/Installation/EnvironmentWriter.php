@@ -22,9 +22,11 @@ final readonly class EnvironmentWriter
             'APP_SECRET' => bin2hex(random_bytes(32)),
             'APP_INSTALLER_ENABLED' => $installerEnabled ? '1' : '0',
             'DEFAULT_URI' => rtrim($input->baseDomain, '/'),
+            'APP_TRUSTED_HOST' => '^'.preg_quote((string) parse_url($input->baseDomain, PHP_URL_HOST), '/').'$',
             'DATABASE_URL' => $input->database->databaseUrl(),
             'LOCK_DSN' => 'flock',
             'MAILER_DSN' => $input->mailerDsn,
+            'MAIL_FROM' => $input->mailFrom,
         ];
 
         $contents = "# Automatisch durch den Web-Installer erzeugt. Nicht versionieren.\n";
@@ -39,6 +41,6 @@ final readonly class EnvironmentWriter
 
     private function quote(string $value): string
     {
-        return "'" . str_replace(['\\', "'"], ['\\\\', "\\'"], $value) . "'";
+        return "'".str_replace("'", "'\\''", $value)."'";
     }
 }

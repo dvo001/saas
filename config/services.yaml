@@ -58,6 +58,11 @@ services:
       $invitationLimiter: '@limiter.invitation'
       $twoFactorLimiter: '@limiter.two_factor'
       $registrationLimiter: '@limiter.registration'
+      $sensitiveActionLimiter: '@limiter.sensitive_action'
+
+  App\Core\Presentation\Web\EventSubscriber\SecurityHeadersSubscriber:
+    arguments:
+      $environment: '%kernel.environment%'
 
   App\Core\Infrastructure\Tenancy\EventAccess:
     public: true

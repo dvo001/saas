@@ -20,7 +20,6 @@
 {% endmacro %}
 {% block title %}Fussballmodul · {{ football.event.name }}{% endblock %}
 {% block stylesheets %}<link rel="stylesheet" href="/assets/css/football.css">{% endblock %}
-{% block javascripts %}<script src="/assets/js/football.js" defer></script>{% endblock %}
 {% block body %}
 <div data-football-revision="{{ football.revision }}" data-football-revision-url="{{ path('football_revision',{slug:tenant.slug,id:football.event.public_id}) }}">
 <div class="d-flex justify-content-between mb-4"><div><p class="eyebrow">Fussballturnier</p><h1 class="h2">{{ football.event.name }}</h1><p><span class="badge text-bg-secondary">Spielplan: {{ football.settings.schedule_state }}</span> <span class="badge text-bg-secondary">Ranglisten: {{ football.settings.ranking_state }}</span></p></div><a href="{{ path('tenant_event',{slug:tenant.slug,id:football.event.public_id}) }}">Veranstaltung</a></div>

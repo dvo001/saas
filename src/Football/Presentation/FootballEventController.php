@@ -55,10 +55,10 @@ final class FootballEventController extends AbstractController
     }
 
     #[Route('/v/{slug}/veranstaltungen/{id}/fussball/revision', name: 'football_revision', methods: ['GET'])]
-    public function revision(string $id, FootballCompetitionService $competition): JsonResponse
+    public function revision(string $id, Request $request, FootballCompetitionService $competition): JsonResponse
     {
         $user = $this->getUser(); if (!$user instanceof TenantUser) { throw $this->createAccessDeniedException(); }
-        return new JsonResponse(['revision' => $competition->revision($user, $id)]);
+        $revision = $competition->revision($user, $id); $response = new JsonResponse(['revision' => $revision]); $response->setEtag($revision); $response->setPrivate(); $response->isNotModified($request); return $response;
     }
 
     #[Route('/v/{slug}/veranstaltungen/{id}/fussball/pdf/{document}', name: 'football_pdf', requirements: ['document' => 'schedule|schedule_category|schedule_field|schedule_time|standings|finals|final_rankings'], methods: ['GET'])]

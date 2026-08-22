@@ -19,6 +19,7 @@ final class InstallationInputTest extends TestCase
             'admin@example.ch',
             'a-long-password',
             'null://null',
+            'noreply@example.ch',
         );
 
         self::assertSame([], $input->validate());
@@ -32,6 +33,7 @@ final class InstallationInputTest extends TestCase
             'http://insecure.example',
             'not-an-email',
             'short',
+            'invalid',
             'invalid',
         );
 

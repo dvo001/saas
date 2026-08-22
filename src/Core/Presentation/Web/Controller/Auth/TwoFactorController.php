@@ -45,6 +45,7 @@ final class TwoFactorController extends AbstractController
                 $entityManager->flush();
                 $session->remove('_totp_setup_secret');
                 $session->set('two_factor_passed', true);
+                $session->migrate(true);
                 $audit->log('auth.2fa_enabled', 'tenant_user', $user->getPublicId(), $user->getTenant(), $user, [], $request->getClientIp());
 
                 return $this->redirectToRoute('tenant_dashboard', ['slug' => $user->getTenant()->getSlug()]);
@@ -75,6 +76,7 @@ final class TwoFactorController extends AbstractController
             $encrypted = $user->getTotpSecretEncrypted() ?? throw new \LogicException('Missing two-factor secret.');
             if ($totp->verify($cipher->decrypt($encrypted), $request->request->getString('code'))) {
                 $request->getSession()->set('two_factor_passed', true);
+                $request->getSession()->migrate(true);
                 $audit->log('auth.2fa_succeeded', 'tenant_user', $user->getPublicId(), $user->getTenant(), $user, [], $request->getClientIp());
 
                 return $this->redirectToRoute('tenant_dashboard', ['slug' => $user->getTenant()->getSlug()]);
@@ -107,6 +109,7 @@ final class TwoFactorController extends AbstractController
                 $user->disableTwoFactor();
                 $entityManager->flush();
                 $request->getSession()->set('two_factor_passed', true);
+                $request->getSession()->migrate(true);
                 $audit->log('auth.2fa_disabled', 'tenant_user', $user->getPublicId(), $user->getTenant(), $user, [], $request->getClientIp());
 
                 return $this->redirectToRoute('tenant_dashboard', ['slug' => $user->getTenant()->getSlug()]);
