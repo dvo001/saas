@@ -29,7 +29,7 @@ final class BillingApplicationTest extends TestCase
     {
         $service = $this->source('src/Core/Application/Billing/InvoiceDocumentService.php');
         self::assertStringContainsString('Sprain\\SwissQrBill', $service);
-        self::assertStringContainsString('tenant_id = :tenant AND public_id = :public_id', $service);
+        self::assertStringContainsString('i.tenant_id = :tenant AND i.public_id = :public_id', $service);
         self::assertStringContainsString('TcPdfOutput', $service);
     }
 

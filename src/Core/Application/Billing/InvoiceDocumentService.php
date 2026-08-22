@@ -24,7 +24,12 @@ final readonly class InvoiceDocumentService
     public function pdfPath(Tenant $tenant, string $invoicePublicId): string
     {
         $tenantId = $tenant->getId() ?? throw new \LogicException('Missing tenant id.');
-        $invoice = $this->connection->fetchAssociative('SELECT * FROM invoices WHERE tenant_id = :tenant AND public_id = :public_id', ['tenant' => $tenantId, 'public_id' => $invoicePublicId]);
+        return $this->pdfPathForTenant($tenantId, $invoicePublicId);
+    }
+
+    public function pdfPathForTenant(int $tenantId, string $invoicePublicId): string
+    {
+        $invoice = $this->connection->fetchAssociative('SELECT i.*, t.public_id AS tenant_public_id FROM invoices i JOIN tenants t ON t.id = i.tenant_id WHERE i.tenant_id = :tenant AND i.public_id = :public_id', ['tenant' => $tenantId, 'public_id' => $invoicePublicId]);
         if ($invoice === false) { throw new \DomainException('Rechnung nicht gefunden.'); }
         if (is_string($invoice['pdf_storage_path']) && $invoice['pdf_storage_path'] !== '') {
             $existing = $this->projectDirectory.'/'.$invoice['pdf_storage_path'];
@@ -41,7 +46,7 @@ final readonly class InvoiceDocumentService
         $qrBill->setPaymentAmountInformation(PaymentAmountInformation::create((string) $invoice['currency'], (float) ((int) $invoice['total_minor'] / 100)));
         $reference = RfCreditorReferenceGenerator::generate(str_replace(['GS-', '-'], ['C', ''], (string) $invoice['invoice_number']));
         $qrBill->setPaymentReference(PaymentReference::create(PaymentReference::TYPE_SCOR, $reference));
-        $qrBill->setAdditionalInformation(AdditionalInformation::create('Rechnung '.$invoice['invoice_number']));
+        $qrBill->setAdditionalInformation(AdditionalInformation::create(($invoice['document_type'] === 'credit_note' ? 'Gutschrift ' : 'Rechnung ').$invoice['invoice_number']));
         if (count($qrBill->getViolations()) > 0) { throw new \DomainException('Die konfigurierten QR-Rechnungsdaten sind ungültig.'); }
 
         $lines = $this->connection->fetchAllAssociative('SELECT * FROM invoice_lines WHERE tenant_id = :tenant AND invoice_id = :invoice ORDER BY position', ['tenant' => $tenantId, 'invoice' => $invoice['id']]);
@@ -58,7 +63,7 @@ final readonly class InvoiceDocumentService
         $pdf->SetFont('helvetica', 'B', 10); $this->totalLine($pdf, 'Total', (int) $invoice['total_minor'], (string) $invoice['currency']);
         (new TcPdfOutput($qrBill, 'de', $pdf))->getPaymentPart();
 
-        $relative = 'storage/invoices/'.$tenant->getPublicId().'/'.$invoice['invoice_number'].'.pdf';
+        $relative = 'storage/invoices/'.$invoice['tenant_public_id'].'/'.$invoice['invoice_number'].'.pdf';
         $absolute = $this->projectDirectory.'/'.$relative;
         (new Filesystem())->mkdir(dirname($absolute), 0700); $pdf->Output($absolute, 'F');
         $this->connection->update('invoices', ['pdf_storage_path' => $relative, 'qr_payload' => $qrBill->getQrCode()->getText()], ['id' => $invoice['id'], 'tenant_id' => $tenantId]);

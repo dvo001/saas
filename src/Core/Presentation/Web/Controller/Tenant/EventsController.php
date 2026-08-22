@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Core\Presentation\Web\Controller\Tenant;
 
+use App\Core\Application\Document\EventDocumentService;
 use App\Core\Application\Event\EventService;
 use App\Core\Domain\Event\EventStatus;
 use App\Core\Infrastructure\Doctrine\Entity\TenantUser;
@@ -11,6 +12,8 @@ use App\Core\Infrastructure\Tenancy\TenantContext;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -25,7 +28,17 @@ final class EventsController extends AbstractController
     }
 
     #[Route('/v/{slug}/veranstaltungen/{id}', name: 'tenant_event', methods: ['GET'])]
-    public function detail(string $id, TenantContext $context, EventService $events): Response { $user = $this->getUser(); if (!$user instanceof TenantUser) { throw $this->createAccessDeniedException(); } return $this->render('tenant/events/detail.html.twig', ['tenant' => $context->get(), 'event' => $events->get($user, $id)]); }
+    public function detail(string $id, TenantContext $context, EventService $events, EventDocumentService $documents): Response { $user = $this->getUser(); if (!$user instanceof TenantUser) { throw $this->createAccessDeniedException(); } return $this->render('tenant/events/detail.html.twig', ['tenant' => $context->get(), 'event' => $events->get($user, $id), 'documents' => $documents->listFor($user, $id)]); }
+
+    #[Route('/v/{slug}/veranstaltungen/{id}/dokumente/{document}', name: 'tenant_event_document', methods: ['GET'])]
+    public function document(string $id, string $document, EventDocumentService $documents): Response
+    {
+        $user = $this->getUser(); if (!$user instanceof TenantUser) { throw $this->createAccessDeniedException(); }
+        try { $path = $documents->downloadPath($user, $id, $document); } catch (\DomainException) { throw $this->createNotFoundException(); }
+        $response = new BinaryFileResponse($path);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, basename($path));
+        return $response;
+    }
 
     #[Route('/v/{slug}/veranstaltungen/{id}/status', name: 'tenant_event_status', methods: ['POST'])]
     public function status(string $id, Request $request, TenantContext $context, EventService $events): Response

@@ -26,6 +26,7 @@ final readonly class AuditLogger
             'context' => json_encode($context, JSON_THROW_ON_ERROR),
             'ip_hash' => $ip === null ? null : hash_hmac('sha256', $ip, $this->appSecret),
             'occurred_at' => gmdate('Y-m-d H:i:s'),
+            'retention_until' => null,
         ]);
     }
 
@@ -42,6 +43,7 @@ final readonly class AuditLogger
             'context' => json_encode($context, JSON_THROW_ON_ERROR),
             'ip_hash' => $ip === null ? null : hash_hmac('sha256', $ip, $this->appSecret),
             'occurred_at' => gmdate('Y-m-d H:i:s'),
+            'retention_until' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->add(new \DateInterval('P10Y'))->format('Y-m-d H:i:s'),
         ]);
     }
 
@@ -58,6 +60,7 @@ final readonly class AuditLogger
             'context' => json_encode($context, JSON_THROW_ON_ERROR),
             'ip_hash' => null,
             'occurred_at' => gmdate('Y-m-d H:i:s'),
+            'retention_until' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->add(new \DateInterval('P10Y'))->format('Y-m-d H:i:s'),
         ]);
     }
 }

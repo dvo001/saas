@@ -55,6 +55,9 @@ class Tenant
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $registrationReminderSentAt = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $logoStoragePath = null;
+
     public function getId(): ?int { return $this->id; }
     public function getPublicId(): string { return $this->publicId; }
     public function getName(): string { return $this->name; }
@@ -64,6 +67,7 @@ class Tenant
     public function isSupportImpersonationEnabled(): bool { return $this->supportImpersonationEnabled; }
     public function setSupportImpersonationEnabled(bool $enabled): void { $this->supportImpersonationEnabled = $enabled; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
+    public function getLogoStoragePath(): ?string { return $this->logoStoragePath; }
 
     public function confirm(\DateTimeImmutable $now): void
     {
