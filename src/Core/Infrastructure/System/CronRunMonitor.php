@@ -30,7 +30,7 @@ final readonly class CronRunMonitor
     /** @param array<string, mixed> $context */
     public function succeed(string $publicId, string $jobName, array $context = []): void
     {
-        $this->connection->update('cron_runs', ['finished_at' => gmdate('Y-m-d H:i:s'), 'status' => 'success'], ['public_id' => $publicId]);
+        $this->connection->update('cron_runs', ['finished_at' => gmdate('Y-m-d H:i:s'), 'status' => 'success', 'result_context' => json_encode($context, JSON_THROW_ON_ERROR)], ['public_id' => $publicId]);
         $this->audit->logSystem('cron.succeeded', 'cron_run', $publicId, ['job_name' => $jobName, ...$context]);
     }
 
