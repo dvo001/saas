@@ -22,9 +22,18 @@
                 </button>
                 <div class="collapse navbar-collapse" id="main-navigation" data-nav>
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item"><a class="nav-link active" href="/">{{ 'nav.dashboard'|trans }}</a></li>
-                        <li class="nav-item"><span class="nav-link disabled">{{ 'nav.events'|trans }}</span></li>
-                        <li class="nav-item"><span class="nav-link disabled">{{ 'nav.master_data'|trans }}</span></li>
+                        {% if is_granted('ROLE_TENANT_USER') %}
+                            <li class="nav-item"><a class="nav-link" href="{{ path('tenant_dashboard',{slug:app.user.tenant.slug}) }}">{{ 'nav.dashboard'|trans }}</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ path('tenant_events',{slug:app.user.tenant.slug}) }}">{{ 'nav.events'|trans }}</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ path('tenant_registries',{slug:app.user.tenant.slug}) }}">{{ 'nav.master_data'|trans }}</a></li>
+                        {% elseif is_granted('ROLE_PLATFORM_ADMIN') %}
+                            <li class="nav-item"><a class="nav-link" href="{{ path('platform_dashboard') }}">Plattform</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ path('platform_tenants') }}">Vereine</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ path('platform_invoices') }}">Rechnungen</a></li>
+                        {% else %}
+                            <li class="nav-item"><a class="nav-link" href="{{ path('registration') }}">Verein registrieren</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{{ path('platform_login') }}">Plattformlogin</a></li>
+                        {% endif %}
                     </ul>
                     <button class="btn btn-outline-secondary btn-sm" type="button" data-theme-toggle aria-label="Farbschema wechseln">◐ <span>Darstellung</span></button>
                 </div>

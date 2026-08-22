@@ -1,0 +1,70 @@
+name: V1 release checks
+
+on:
+  push:
+    branches: [main, 'milestone/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root-test-password
+          MARIADB_DATABASE: saas_test
+          MARIADB_USER: saas_test
+          MARIADB_PASSWORD: saas-test-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -u root -proot-test-password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      APP_ENV: test
+      APP_DEBUG: 0
+      APP_SECRET: github-actions-test-secret-not-for-production
+      APP_INSTALLER_ENABLED: 1
+      DEFAULT_URI: https://localhost
+      APP_TRUSTED_HOST: '^localhost$'
+      DATABASE_URL: 'mysql://saas_test:saas-test-password@127.0.0.1:3306/saas_test?serverVersion=10.11.0-MariaDB&charset=utf8mb4'
+      LOCK_DSN: flock
+      MAILER_DSN: null://null
+      MAIL_FROM: noreply@example.ch
+      PLATFORM_EMERGENCY_RECOVERY_TOKEN: test-emergency-token
+      RUN_DATABASE_TESTS: 1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, fileinfo, gd, iconv, intl, mbstring, openssl, pdo_mysql, sodium, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Migrate fresh MariaDB schema
+        run: php bin/console doctrine:migrations:migrate --no-interaction --env=test
+
+      - name: Run all tests and static checks
+        run: composer verify
+
+      - name: Warm production cache
+        env:
+          APP_ENV: prod
+          APP_DEBUG: 0
+        run: php bin/console cache:warmup

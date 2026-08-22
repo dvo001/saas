@@ -1,16 +1,15 @@
 # Architektur – SaaS-Plattform für Schweizer Sportvereine
 
-Status: Milestone 2
+Status: Version-1-Release-Candidate (Milestone 12)
 
-Stand: 21. August 2026  
+Stand: 22. August 2026
 Zielversion: Version 1
 
 ## 1. Entscheidungsübersicht
 
-Die bestehende Anwendung wird nicht inkrementell erweitert. Ab Milestone 1 entsteht
-im bestehenden Repository eine neue, modulare Anwendung. Der bisherige Code bleibt
-nur so lange als fachliche Referenz vorhanden, bis die jeweilige Funktion in der
-neuen Architektur ersetzt ist.
+Der frühere Prototyp wurde seit Milestone 1 durch eine modulare Symfony-Anwendung
+ersetzt. Diese Dokumentation beschreibt den tatsächlich ausgelieferten
+Version-1-Stand und seine Betriebsgrenzen.
 
 | Bereich | Entscheidung |
 | --- | --- |
@@ -51,9 +50,9 @@ Die Referenz bildet folgenden Ablauf ab:
 6. Finalzeit oder Finalstatus erfassen.
 7. Qualifikations-/Endranglisten, Laufzettel und CSV ausgeben.
 
-Die Regeln werden in Milestone 8 als neue Domain-Services implementiert. Datenmodell
-und Code der Referenz werden nicht kopiert. Insbesondere werden Zeiten gemäß neuer
-Spezifikation in Hundertstelsekunden statt in Zehntelsekunden gespeichert.
+Die Regeln sind seit Milestone 8 als eigene Domain-Services implementiert. Datenmodell
+und Code der Referenz wurden nicht kopiert. Zeiten werden gemäß Spezifikation je nach
+Veranstaltung in Zehntel- oder Hundertstelsekunden gespeichert.
 
 ## 3. Begründung des Stacks
 
@@ -128,10 +127,8 @@ src/
     Application/
     Infrastructure/
     Presentation/
-  Module/
-    RunningEvent/
-    FootballTournament/
-  Shared/
+  Running/
+  Football/
 templates/                  Kernlayouts und gemeinsame Komponenten
 tests/
   Architecture/
@@ -201,9 +198,10 @@ Die Schutzschichten sind:
 5. Zusammengesetzte Datenbank-Constraints gegen mandantenübergreifende Referenzen.
 6. Integrationstests pro Route, Repository und Dateiabruf mit zwei Mandanten.
 
-Tests prüfen mindestens Listen, Detailseiten, manipulierbare IDs, Writes, Exporte,
-Uploads, Polling und indirekte Beziehungen. Ein Zugriff auf fremde Objekte liefert
-404, damit deren Existenz nicht offengelegt wird.
+Schnelle Architekturtests und MariaDB-Integrationstests prüfen ORM-Filter,
+Fremdschlüssel, Rollen, Registrierung, HTTP-Slug-Manipulation und private Exporte.
+Fremde Ressourcen werden nicht ausgeliefert; Services verwenden stets den Mandanten
+des authentifizierten Akteurs und nicht Clientwerte als Autorisierung.
 
 ## 9. Security-Konzept
 
@@ -252,23 +250,20 @@ Fehlerreferenz. Der letzte erfolgreiche Lauf ermöglicht Überfälligkeitswarnun
 Löschjobs unterstützen zwingend `--preview`; manuelle kritische Läufe verwenden
 denselben Application-Service wie der Cron und erzeugen Audit-Einträge.
 
-Asynchrone Arbeit benötigt keinen Worker: Eine Datenbank-Outbox hält Mail- und
-Exportaufträge, die durch eigene Cron-Kommandos abgearbeitet werden. Wiederholungen
-verwenden exponentielles Backoff und eine begrenzte Versuchszahl.
+Asynchrone Arbeit benötigt keinen Worker: Exportaufträge liegen als überwachte
+Datenbankjobs vor und werden vom gemeinsamen Cronrunner verarbeitet. Zeitgesteuerte
+Mail- und Lifecycle-Aufgaben laufen ebenfalls über diesen idempotenten Runner.
 
 ## 12. Payment-Abstraktion
 
-Der Kern definiert einen `PaymentGatewayInterface` mit Operationen zum Erstellen
-eines Bezahlvorgangs, Prüfen/Verarbeiten signierter Callbacks und Erstatten. Fachliche
-Abo- und Rechnungszustände hängen nur von internen Payment-Entitäten ab, nie von
-Providerobjekten.
+Der Kern definiert ein `PaymentProviderInterface` für Zahlungsstart, Status,
+Webhook-Verarbeitung, Providerreferenzen und wiederkehrende Referenzen. Fachliche
+Abo- und Rechnungszustände hängen nur von internen Payment-Entitäten ab.
 
-Version 1 enthält:
-
-- `InvoicePaymentGateway` für manuelle Zahlung per Schweizer Rechnung.
-- mindestens einen Online-Adapter, erst nach separater Providerauswahl.
-- eine unveränderliche Provider-Referenz und idempotente Ereignis-ID pro Callback.
-- einen periodischen Reconciliation-Job als Absicherung gegen verlorene Callbacks.
+Version 1 liefert die vollständig funktionsfähige Rechnungszahlung mit manueller
+Zahlungsverbuchung. Ein kommerzieller Online-Provider wurde bewusst nicht gewählt
+und es wird kein Fake-Live-Adapter angeboten. Ein später ausgewählter Provider wird
+als Infrastructure-Adapter an die vorhandene Schnittstelle angeschlossen.
 
 QR-Rechnungen werden aus eingefrorenen Rechnungsdaten erzeugt. Provider-Secrets
 liegen ausschließlich in der Umgebung; rohe Zahlungsdaten werden weder gespeichert
@@ -287,34 +282,29 @@ Version; bei Abweichung wird ein Konflikt mit Vergleichsansicht gemeldet.
 
 ## 14. Qualitätssicherung und Delivery
 
-Jeder Milestone erhält einen eigenen Branch und Pull Request. Der Mindestcheck ist:
+Jeder Release-Branch durchläuft lokal und in GitHub Actions mindestens:
 
 ```bash
 composer validate --strict
 composer install --no-interaction
-vendor/bin/phpunit
-vendor/bin/phpstan analyse
-bin/console doctrine:migrations:migrate --no-interaction --env=test
-bin/console lint:container
-bin/console lint:twig templates
+php bin/console doctrine:migrations:migrate --no-interaction --env=test
+RUN_DATABASE_TESTS=1 composer verify
+APP_ENV=prod APP_DEBUG=0 php bin/console cache:warmup
 ```
 
-Zusätzlich werden alle PHP-Dateien syntaktisch geprüft und die Anwendung über einen
-HTTP-Smoke-Test gestartet. Milestone 2 führt die verpflichtende Isolationstest-Matrix
-ein; danach blockiert sie jeden Merge.
+Die CI startet MariaDB 10.11 frisch, migriert das vollständige Schema und führt die
+Datenbank-, HTTP- und Mandantenisolationstests ohne Skips aus. Erst danach ist ein
+Version-1-Release freigabefähig.
 
 Releases werden mit `composer install --no-dev --classmap-authoritative` gebaut. Es
 gibt keine Produktionsabhängigkeit von Node, einem Queue-Worker, WebSockets oder
 proprietären Pflichtdiensten.
 
-## 15. Umsetzung ab Milestone 1
+## 15. Version-1-Umfang
 
-Milestone 1 ersetzt das Projektgerüst vollständig und liefert einen installierbaren
-Application Core mit Konfiguration, Logging/Fehlerreferenzen, Migrationen, deutscher
-i18n-Grundlage, responsivem Light/Dark-Layout, sicherer Dateistruktur, Web-Installer
-und versionierten Plattform-Basiseinstellungen. Fachliche Auth-, Billing- und
-Sportmodulfunktionen beginnen erst in den dafür vorgesehenen Milestones.
-
-Beim Übergang werden Referenzdateien nicht unkontrolliert gelöscht: Jede Entfernung
-erfolgt im Milestone-1-Commit nachvollziehbar, nachdem entsprechende Erkenntnisse in
-Spezifikation oder Architektur gesichert sind.
+Version 1 umfasst den installierbaren Application Core, Plattform- und
+Vereinsadministration, Authentifizierung und 2FA, Billing per Schweizer Rechnung,
+Cron/Benachrichtigungen, Veranstaltungen und Stammdaten, Laufanlässe,
+Fussballturniere, PDFs, Exporte, Aufbewahrung sowie die abschließende
+Security-/Deployment-Härtung. Online-Zahlungsanbieter und weitere Sportmodule sind
+bewusste Erweiterungspunkte nach Version 1.

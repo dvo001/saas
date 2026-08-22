@@ -30,6 +30,7 @@ final readonly class AuthRateLimitSubscriber implements EventSubscriberInterface
         'registration_confirm' => 'registration',
         'registration_resend' => 'registration',
         'tenant_export_download' => 'sensitive',
+        'tenant_billing_reauthenticate' => 'sensitive',
         'tenant_user_delete' => 'sensitive',
         'platform_admin_delete' => 'sensitive',
         'owner_transfer' => 'sensitive',
