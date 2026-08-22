@@ -48,6 +48,10 @@ services:
     arguments:
       $mailerDsn: '%env(MAILER_DSN)%'
 
+  App\Core\Infrastructure\Mail\SystemMailer:
+    arguments:
+      $appSecret: '%kernel.secret%'
+
   App\Core\Presentation\Web\EventSubscriber\AuthRateLimitSubscriber:
     arguments:
       $recoveryLimiter: '@limiter.account_recovery'
