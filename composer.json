@@ -11,6 +11,7 @@
     "doctrine/doctrine-bundle": "^2.13",
     "doctrine/doctrine-migrations-bundle": "^3.4",
     "doctrine/orm": "^3.3",
+    "sprain/swiss-qr-bill": "^5.3",
     "symfony/asset": "7.4.*",
     "symfony/console": "7.4.*",
     "symfony/dotenv": "7.4.*",
@@ -29,9 +30,10 @@
     "symfony/uid": "7.4.*",
     "symfony/validator": "7.4.*",
     "symfony/yaml": "7.4.*",
+    "tecnickcom/tcpdf": "^6.10",
+    "twbs/bootstrap": "^5.3",
     "twig/extra-bundle": "^3.15",
-    "twig/twig": "^3.15",
-    "twbs/bootstrap": "^5.3"
+    "twig/twig": "^3.15"
   },
   "require-dev": {
     "phpstan/phpstan": "^2.1",

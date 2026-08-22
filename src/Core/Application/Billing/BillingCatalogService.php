@@ -103,4 +103,10 @@ final readonly class BillingCatalogService
         }
         $this->audit->logPlatform($active ? 'billing.product.activated' : 'billing.product.deactivated', 'billing_product', $publicId, $admin, [], null, $ip);
     }
+
+    public function setModuleActive(PlatformAdmin $admin, string $code, bool $active, string $ip): void
+    {
+        if ($this->connection->update('sport_modules', ['active' => $active ? 1 : 0, 'updated_at' => gmdate('Y-m-d H:i:s')], ['code' => $code]) === 0) { throw new \DomainException('Das Sportmodul wurde nicht gefunden.'); }
+        $this->audit->logPlatform($active ? 'billing.module.activated' : 'billing.module.deactivated', 'sport_module', $code, $admin, [], null, $ip);
+    }
 }

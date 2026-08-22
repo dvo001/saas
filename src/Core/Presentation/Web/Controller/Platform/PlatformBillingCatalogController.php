@@ -58,6 +58,14 @@ final class PlatformBillingCatalogController extends AbstractController
         return $this->redirectToRoute('platform_billing_products');
     }
 
+    #[Route('/platform/module/{code}/{action}', name: 'platform_billing_module_action', requirements: ['action' => 'aktivieren|deaktivieren'], methods: ['POST'])]
+    public function moduleAction(string $code, string $action, Request $request, BillingCatalogService $catalog): Response
+    {
+        if (!$this->isCsrfTokenValid('billing_module_'.$code, $request->request->getString('_csrf_token'))) { throw $this->createAccessDeniedException(); }
+        try { $catalog->setModuleActive($this->admin(), $code, $action === 'aktivieren', $request->getClientIp() ?? ''); $this->addFlash('success', 'Der plattformweite Modulstatus wurde geändert.'); } catch (\DomainException $exception) { $this->addFlash('danger', $exception->getMessage()); }
+        return $this->redirectToRoute('platform_billing_products');
+    }
+
     private function admin(): PlatformAdmin
     {
         $admin = $this->getUser();
