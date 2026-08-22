@@ -81,6 +81,7 @@ final class TenantLoginAuthenticator extends AbstractLoginFormAuthenticator
         $session = $request->getSession();
         $requiresChallenge = $user->requiresTwoFactor() || $user->hasTwoFactor();
         $session->set('two_factor_passed', !$requiresChallenge);
+        $session->set('tenant_auth_started_at', time());
         $session->set('last_activity_at', time());
         $this->audit->log('auth.login_succeeded', 'tenant_user', $user->getPublicId(), $user->getTenant(), $user, [], $request->getClientIp());
 

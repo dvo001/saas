@@ -40,6 +40,7 @@ final class PlatformAuthController extends AbstractController
                 $entityManager->flush();
                 $request->getSession()->remove('_platform_totp_setup_secret');
                 $request->getSession()->set('platform_two_factor_passed', true);
+                $request->getSession()->migrate(true);
                 $audit->logPlatform('platform.auth.2fa_enabled', 'platform_admin', $admin->getPublicId(), $admin, [], null, $request->getClientIp());
 
                 return $this->redirectToRoute('platform_dashboard');
@@ -61,6 +62,7 @@ final class PlatformAuthController extends AbstractController
             $secret = $admin->getTotpSecretEncrypted() ?? throw new \LogicException('Missing platform 2FA secret.');
             if ($totp->verify($cipher->decrypt($secret), $request->request->getString('code'))) {
                 $request->getSession()->set('platform_two_factor_passed', true);
+                $request->getSession()->migrate(true);
                 $audit->logPlatform('platform.auth.2fa_succeeded', 'platform_admin', $admin->getPublicId(), $admin, [], null, $request->getClientIp());
 
                 return $this->redirectToRoute('platform_dashboard');

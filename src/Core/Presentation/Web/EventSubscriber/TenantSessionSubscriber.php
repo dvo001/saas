@@ -40,9 +40,11 @@ final readonly class TenantSessionSubscriber implements EventSubscriberInterface
         $request = $event->getRequest();
         $session = $request->getSession();
         $now = time();
+        $startedAt = (int) $session->get('tenant_auth_started_at', $now);
         $lastActivity = (int) $session->get('last_activity_at', $now);
         $idleLimit = $user->getTenantRole()->sensitiveSession() ? 7200 : 28800;
-        if ($now - $lastActivity > $idleLimit) {
+        $absoluteLimit = $user->getTenantRole()->sensitiveSession() ? 28800 : 86400;
+        if ($now - $lastActivity > $idleLimit || $now - $startedAt > $absoluteLimit) {
             $this->tokens->setToken(null);
             $session->invalidate();
             $event->setResponse(new RedirectResponse($this->urls->generate('tenant_login', ['slug' => $user->getTenant()->getSlug(), 'expired' => 1])));
@@ -50,6 +52,7 @@ final readonly class TenantSessionSubscriber implements EventSubscriberInterface
             return;
         }
 
+        $session->set('tenant_auth_started_at', $startedAt);
         $session->set('last_activity_at', $now);
         $needsTwoFactor = $user->requiresTwoFactor() || $user->hasTwoFactor();
         $route = $request->attributes->get('_route');

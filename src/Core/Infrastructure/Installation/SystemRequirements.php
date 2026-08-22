@@ -13,7 +13,7 @@ final readonly class SystemRequirements
             ['name' => 'PHP 8.2 oder neuer', 'met' => version_compare(PHP_VERSION, '8.2.0', '>='), 'detail' => PHP_VERSION],
         ];
 
-        foreach (['ctype', 'fileinfo', 'intl', 'mbstring', 'openssl', 'pdo', 'pdo_mysql', 'sodium'] as $extension) {
+        foreach (['ctype', 'fileinfo', 'gd', 'iconv', 'intl', 'mbstring', 'openssl', 'pdo', 'pdo_mysql', 'sodium', 'zip'] as $extension) {
             $checks[] = [
                 'name' => 'PHP-Erweiterung ' . $extension,
                 'met' => extension_loaded($extension),

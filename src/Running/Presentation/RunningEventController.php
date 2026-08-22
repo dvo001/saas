@@ -51,10 +51,10 @@ final class RunningEventController extends AbstractController
     }
 
     #[Route('/v/{slug}/veranstaltungen/{id}/lauf/revision', name: 'running_revision', methods: ['GET'])]
-    public function revision(string $id, RunningCompetitionService $competition): JsonResponse
+    public function revision(string $id, Request $request, RunningCompetitionService $competition): JsonResponse
     {
         $user = $this->getUser(); if (!$user instanceof TenantUser) { throw $this->createAccessDeniedException(); }
-        return new JsonResponse(['revision' => $competition->revision($user, $id)]);
+        $revision = $competition->revision($user, $id); $response = new JsonResponse(['revision' => $revision]); $response->setEtag($revision); $response->setPrivate(); $response->isNotModified($request); return $response;
     }
 
     #[Route('/v/{slug}/veranstaltungen/{id}/lauf/pdf/{document}', name: 'running_pdf', requirements: ['document' => 'sheets|qualification|finalists|final'], methods: ['GET'])]

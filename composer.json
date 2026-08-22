@@ -6,8 +6,16 @@
   "require": {
     "php": ">=8.2",
     "ext-ctype": "*",
+    "ext-fileinfo": "*",
+    "ext-gd": "*",
     "ext-iconv": "*",
+    "ext-intl": "*",
+    "ext-mbstring": "*",
+    "ext-openssl": "*",
     "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-sodium": "*",
+    "ext-zip": "*",
     "doctrine/doctrine-bundle": "^2.13",
     "doctrine/doctrine-migrations-bundle": "^3.4",
     "doctrine/orm": "^3.3",
@@ -78,6 +86,13 @@
     "post-update-cmd": ["@auto-scripts", "@assets:publish"],
     "assets:publish": "@php bin/publish-assets.php",
     "test": "phpunit",
-    "analyse": "phpstan analyse"
+    "analyse": "phpstan analyse",
+    "verify": [
+      "@test",
+      "@analyse",
+      "@php bin/console lint:container",
+      "@php bin/console lint:yaml config translations",
+      "@php bin/console lint:twig templates"
+    ]
   }
 }

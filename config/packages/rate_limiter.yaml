@@ -16,3 +16,7 @@ framework:
       policy: sliding_window
       limit: 10
       interval: '1 hour'
+    sensitive_action:
+      policy: token_bucket
+      limit: 10
+      rate: { interval: '1 minute', amount: 5 }

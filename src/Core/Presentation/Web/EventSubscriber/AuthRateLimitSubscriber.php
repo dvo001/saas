@@ -16,12 +16,23 @@ final readonly class AuthRateLimitSubscriber implements EventSubscriberInterface
     private const ROUTE_LIMITERS = [
         'password_forgot' => 'recovery',
         'owner_unlock_request' => 'recovery',
+        'owner_unlock' => 'recovery',
+        'password_reset' => 'recovery',
         'tenant_users' => 'invitation',
         'invitation_accept' => 'invitation',
+        'platform_invitation_accept' => 'invitation',
+        'owner_transfer_confirm' => 'invitation',
         'tenant_2fa_setup' => 'two_factor',
         'tenant_2fa_verify' => 'two_factor',
+        'platform_2fa_setup' => 'two_factor',
+        'platform_2fa_verify' => 'two_factor',
         'registration' => 'registration',
+        'registration_confirm' => 'registration',
         'registration_resend' => 'registration',
+        'tenant_export_download' => 'sensitive',
+        'tenant_user_delete' => 'sensitive',
+        'platform_admin_delete' => 'sensitive',
+        'owner_transfer' => 'sensitive',
     ];
 
     public function __construct(
@@ -29,6 +40,7 @@ final readonly class AuthRateLimitSubscriber implements EventSubscriberInterface
         private RateLimiterFactory $invitationLimiter,
         private RateLimiterFactory $twoFactorLimiter,
         private RateLimiterFactory $registrationLimiter,
+        private RateLimiterFactory $sensitiveActionLimiter,
     ) {}
 
     public static function getSubscribedEvents(): array
@@ -52,6 +64,7 @@ final readonly class AuthRateLimitSubscriber implements EventSubscriberInterface
             'invitation' => $this->invitationLimiter,
             'two_factor' => $this->twoFactorLimiter,
             'registration' => $this->registrationLimiter,
+            'sensitive' => $this->sensitiveActionLimiter,
         };
         $key = hash('sha256', ($request->getClientIp() ?? 'unknown').'|'.$route.'|'.$request->attributes->getString('slug'));
         $limit = $factory->create($key)->consume();

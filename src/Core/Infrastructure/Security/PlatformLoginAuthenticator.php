@@ -59,6 +59,7 @@ final class PlatformLoginAuthenticator extends AbstractLoginFormAuthenticator
         $admin->registerSuccessfulLogin();
         $this->entityManager->flush();
         $request->getSession()->set('platform_two_factor_passed', false);
+        $request->getSession()->set('platform_auth_started_at', time());
         $request->getSession()->set('platform_last_activity_at', time());
         $this->audit->logPlatform('platform.auth.login_succeeded', 'platform_admin', $admin->getPublicId(), $admin, [], null, $request->getClientIp());
 

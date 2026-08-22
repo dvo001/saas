@@ -1,5 +1,6 @@
 framework:
   secret: '%env(APP_SECRET)%'
+  trusted_hosts: ['%env(APP_TRUSTED_HOST)%']
   default_locale: de_CH
   translator:
     default_path: '%kernel.project_dir%/translations'
@@ -11,6 +12,8 @@ framework:
     cookie_secure: auto
     cookie_httponly: true
     cookie_samesite: lax
+    cookie_lifetime: 0
+    gc_maxlifetime: 86400
     storage_factory_id: session.storage.factory.native
   php_errors:
     log: true
@@ -21,3 +24,8 @@ framework:
     time_based_uuid_version: 7
   validation:
     email_validation_mode: html5
+
+when@prod:
+  framework:
+    session:
+      cookie_secure: true

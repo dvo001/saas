@@ -21,6 +21,8 @@ final readonly class TenantLogoService
         if (!$file->isValid() || $file->getSize() === false || $file->getSize() > 2 * 1024 * 1024) { throw new \DomainException('Das Logo muss eine gültige PNG- oder JPEG-Datei mit maximal 2 MB sein.'); }
         $bytes = $file->getContent(); $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
         if (!in_array($mime, ['image/png', 'image/jpeg'], true)) { throw new \DomainException('Als Vereinslogo sind nur PNG und JPEG erlaubt.'); }
+        $dimensions = @getimagesizefromstring($bytes);
+        if ($dimensions === false || $dimensions[0] < 1 || $dimensions[1] < 1 || $dimensions[0] > 10000 || $dimensions[1] > 10000 || $dimensions[0] * $dimensions[1] > 25_000_000) { throw new \DomainException('Das Logo überschreitet die zulässigen Bildabmessungen.'); }
         $source = @imagecreatefromstring($bytes); if ($source === false) { throw new \DomainException('Das Bild konnte nicht sicher dekodiert werden.'); }
         $width = imagesx($source); $height = imagesy($source); $maximum = max(100, min(10000, (int) $this->settings->get('uploads.logo_max_pixels', 2400))); $scale = min(1, $maximum / max($width, $height)); $targetWidth = max(1, (int) floor($width * $scale)); $targetHeight = max(1, (int) floor($height * $scale));
         $target = imagecreatetruecolor($targetWidth, $targetHeight); if ($target === false) { imagedestroy($source); throw new \RuntimeException('Das Logo konnte nicht verarbeitet werden.'); }

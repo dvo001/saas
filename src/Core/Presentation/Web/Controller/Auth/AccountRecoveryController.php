@@ -63,9 +63,11 @@ final class AccountRecoveryController extends AbstractController
         return $this->render('auth/owner_unlock_request.html.twig', ['tenant' => $context->get(), 'sent' => $sent]);
     }
 
-    #[Route('/konto-entsperren/{token}', name: 'owner_unlock', requirements: ['token' => '[A-Za-z0-9_-]+'], methods: ['GET'])]
+    #[Route('/konto-entsperren/{token}', name: 'owner_unlock', requirements: ['token' => '[A-Za-z0-9_-]+'], methods: ['GET', 'POST'])]
     public function unlock(string $token, Request $request, AccountRecoveryService $recovery): Response
     {
+        if (!$request->isMethod('POST')) { return $this->render('auth/token_confirmation.html.twig', ['title' => 'Ownerkonto entsperren', 'message' => 'Bestätige die Entsperrung dieses Ownerkontos.', 'button' => 'Konto entsperren', 'csrf_id' => 'owner_unlock_'.$token]); }
+        if (!$this->isCsrfTokenValid('owner_unlock_'.$token, $request->request->getString('_csrf_token'))) { throw $this->createAccessDeniedException('Ungültiges Sicherheitstoken.'); }
         try {
             $user = $recovery->unlockOwner($token, $request->getClientIp() ?? '');
 

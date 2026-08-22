@@ -85,9 +85,11 @@ final class RegistrationController extends AbstractController
         ]);
     }
 
-    #[Route('/registrierung/bestaetigen/{token}', name: 'registration_confirm', requirements: ['token' => '[A-Za-z0-9_-]+'], methods: ['GET'])]
+    #[Route('/registrierung/bestaetigen/{token}', name: 'registration_confirm', requirements: ['token' => '[A-Za-z0-9_-]+'], methods: ['GET', 'POST'])]
     public function confirm(string $token, Request $request, RegistrationService $registrations): Response
     {
+        if (!$request->isMethod('POST')) { return $this->render('auth/token_confirmation.html.twig', ['title' => 'Registrierung bestätigen', 'message' => 'Aktiviere den Vereinsaccount und starte die Testphase.', 'button' => 'Registrierung aktivieren', 'csrf_id' => 'registration_confirm_'.$token]); }
+        if (!$this->isCsrfTokenValid('registration_confirm_'.$token, $request->request->getString('_csrf_token'))) { throw $this->createAccessDeniedException('Ungültiges Sicherheitstoken.'); }
         try {
             $tenant = $registrations->confirm($token, $request->getClientIp() ?? '');
 
