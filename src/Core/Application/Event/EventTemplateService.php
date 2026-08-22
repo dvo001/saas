@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Core\Application\Event;
+
+use App\Core\Domain\Tenant\TenantRole;
+use App\Core\Infrastructure\Doctrine\Entity\PlatformAdmin;
+use App\Core\Infrastructure\Doctrine\Entity\TenantUser;
+use App\Core\Infrastructure\Security\AuditLogger;
+use Doctrine\DBAL\Connection;
+use Symfony\Component\Uid\Uuid;
+
+final readonly class EventTemplateService
+{
+    public function __construct(private Connection $connection, private AuditLogger $audit) {}
+    /** @return list<array<string, mixed>> */
+    public function globalOverview(): array { return $this->connection->fetchAllAssociative("SELECT t.public_id, t.name, t.active, sm.name AS module_name, sm.code AS module_code, MAX(tv.version_number) AS version_number FROM event_templates t JOIN sport_modules sm ON sm.id = t.module_id JOIN event_template_versions tv ON tv.template_id = t.id WHERE t.scope = 'global' GROUP BY t.id ORDER BY sm.name, t.name"); }
+    /** @return list<array<string, mixed>> */
+    public function tenantOverview(int $tenantId): array { return $this->connection->fetchAllAssociative("SELECT t.public_id, t.name, sm.name AS module_name, sm.code AS module_code FROM event_templates t JOIN sport_modules sm ON sm.id = t.module_id WHERE t.scope = 'tenant' AND t.tenant_id = :tenant ORDER BY sm.name, t.name", ['tenant' => $tenantId]); }
+
+    public function saveGlobal(PlatformAdmin $actor, string $name, string $moduleCode, string $configurationJson, ?string $publicId, string $ip): string
+    {
+        $config = $this->configuration($configurationJson); $moduleId = $this->moduleId($moduleCode); $now = gmdate('Y-m-d H:i:s');
+        return $this->connection->transactional(function (Connection $db) use ($actor, $name, $moduleId, $config, $publicId, $now, $ip): string {
+            $template = $publicId === null ? false : $db->fetchAssociative("SELECT id, public_id FROM event_templates WHERE public_id = :id AND scope = 'global' FOR UPDATE", ['id' => $publicId]);
+            if ($template === false) { $publicId = Uuid::v7()->toRfc4122(); $db->insert('event_templates', ['tenant_id' => null, 'module_id' => $moduleId, 'public_id' => $publicId, 'scope' => 'global', 'name' => mb_substr(trim($name), 0, 180), 'active' => 1, 'created_by_platform_admin_id' => $actor->getId(), 'created_by_user_id' => null, 'created_at' => $now, 'updated_at' => $now]); $templateId = (int) $db->lastInsertId(); $version = 1; } else { $templateId = (int) $template['id']; $version = (int) $db->fetchOne('SELECT COALESCE(MAX(version_number), 0) + 1 FROM event_template_versions WHERE template_id = :id', ['id' => $templateId]); $db->update('event_templates', ['name' => mb_substr(trim($name), 0, 180), 'module_id' => $moduleId, 'updated_at' => $now], ['id' => $templateId]); }
+            $db->insert('event_template_versions', ['template_id' => $templateId, 'version_number' => $version, 'configuration' => json_encode($config, JSON_THROW_ON_ERROR), 'created_at' => $now]); $this->audit->logPlatform('event_template.version_saved', 'event_template', $publicId, $actor, ['version' => $version], null, $ip); return $publicId;
+        });
+    }
+    public function toggleGlobal(PlatformAdmin $actor, string $publicId, string $ip): void { $current = $this->connection->fetchOne("SELECT active FROM event_templates WHERE public_id = :id AND scope = 'global'", ['id' => $publicId]); if ($current === false) { throw new \DomainException('Vorlage nicht gefunden.'); } $this->connection->update('event_templates', ['active' => !(bool) $current, 'updated_at' => gmdate('Y-m-d H:i:s')], ['public_id' => $publicId]); $this->audit->logPlatform('event_template.toggled', 'event_template', $publicId, $actor, ['active' => !(bool) $current], null, $ip); }
+    public function saveDefaults(PlatformAdmin $actor, string $moduleCode, string $configurationJson, string $ip): void { $config = $this->configuration($configurationJson); $moduleId = $this->moduleId($moduleCode); $version = (int) $this->connection->fetchOne('SELECT COALESCE(MAX(version_number), 0) + 1 FROM module_default_versions WHERE module_id = :id', ['id' => $moduleId]); $this->connection->insert('module_default_versions', ['module_id' => $moduleId, 'version_number' => $version, 'configuration' => json_encode($config, JSON_THROW_ON_ERROR), 'valid_from' => gmdate('Y-m-d H:i:s'), 'created_by_platform_admin_id' => $actor->getId(), 'created_at' => gmdate('Y-m-d H:i:s')]); $this->audit->logPlatform('module_defaults.version_saved', 'sport_module', $moduleCode, $actor, ['version' => $version], null, $ip); }
+    public function saveTenant(TenantUser $actor, string $name, string $moduleCode, string $configurationJson, string $ip): string { if (!in_array($actor->getTenantRole(), [TenantRole::Owner, TenantRole::Administrator, TenantRole::EventManager], true)) { throw new \DomainException('Keine Berechtigung.'); } $config = $this->configuration($configurationJson); $id = Uuid::v7()->toRfc4122(); $now = gmdate('Y-m-d H:i:s'); $this->connection->transactional(function (Connection $db) use ($actor, $name, $moduleCode, $config, $id, $now): void { $db->insert('event_templates', ['tenant_id' => $actor->getTenant()->getId(), 'module_id' => $this->moduleId($moduleCode), 'public_id' => $id, 'scope' => 'tenant', 'name' => mb_substr(trim($name), 0, 180), 'active' => 1, 'created_by_platform_admin_id' => null, 'created_by_user_id' => $actor->getId(), 'created_at' => $now, 'updated_at' => $now]); $db->insert('event_template_versions', ['template_id' => (int) $db->lastInsertId(), 'version_number' => 1, 'configuration' => json_encode($config, JSON_THROW_ON_ERROR), 'created_at' => $now]); }); $this->audit->log('event_template.created', 'event_template', $id, $actor->getTenant(), $actor, [], $ip); return $id; }
+    public function deleteTenant(TenantUser $actor, string $publicId, string $ip): void { if (!in_array($actor->getTenantRole(), [TenantRole::Owner, TenantRole::Administrator, TenantRole::EventManager], true)) { throw new \DomainException('Keine Berechtigung.'); } $templateId = $this->connection->fetchOne("SELECT id FROM event_templates WHERE tenant_id = :tenant AND public_id = :id AND scope = 'tenant'", ['tenant' => $actor->getTenant()->getId(), 'id' => $publicId]); if ($templateId === false) { throw new \DomainException('Vorlage nicht gefunden.'); } if ($this->connection->fetchOne('SELECT 1 FROM events WHERE template_version_id IN (SELECT id FROM event_template_versions WHERE template_id = :id)', ['id' => $templateId]) !== false) { throw new \DomainException('Eine bereits verwendete Vorlage kann nicht gelöscht werden.'); } $this->connection->delete('event_template_versions', ['template_id' => $templateId]); $this->connection->delete('event_templates', ['id' => $templateId]); $this->audit->log('event_template.deleted', 'event_template', $publicId, $actor->getTenant(), $actor, [], $ip); }
+    /** @return array<string, mixed> */ private function configuration(string $json): array { try { $decoded = json_decode($json, true, 64, JSON_THROW_ON_ERROR); } catch (\JsonException) { throw new \DomainException('Die Konfiguration muss gültiges JSON sein.'); } if (!is_array($decoded) || array_is_list($decoded)) { throw new \DomainException('Die Konfiguration muss ein JSON-Objekt sein.'); } return $decoded; }
+    private function moduleId(string $code): int { $id = $this->connection->fetchOne('SELECT id FROM sport_modules WHERE code = :code', ['code' => trim($code)]); return $id === false ? throw new \DomainException('Sportmodul nicht gefunden.') : (int) $id; }
+}

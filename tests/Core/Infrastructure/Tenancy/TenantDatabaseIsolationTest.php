@@ -134,13 +134,19 @@ final class TenantDatabaseIsolationTest extends KernelTestCase
         $entityManager->persist($userB);
         $entityManager->flush();
         $eventPublicId = Uuid::v7()->toRfc4122();
+        $moduleId = (int) $connection->fetchOne("SELECT id FROM sport_modules WHERE code = 'running_event'");
         $connection->insert('events', [
             'tenant_id' => $tenantA->getId(),
             'public_id' => $eventPublicId,
             'primary_event_manager_id' => $userA->getId(),
+            'module_id' => $moduleId,
             'name' => 'Isolation Event',
             'status' => 'draft',
+            'starts_on' => gmdate('Y-m-d'),
+            'ends_on' => gmdate('Y-m-d'),
+            'configuration' => '{}',
             'created_at' => gmdate('Y-m-d H:i:s'),
+            'updated_at' => gmdate('Y-m-d H:i:s'),
         ]);
         $eventId = (int) $connection->lastInsertId();
 
@@ -185,7 +191,8 @@ final class TenantDatabaseIsolationTest extends KernelTestCase
         }
         $entityManager->flush();
         $eventPublicId = Uuid::v7()->toRfc4122();
-        $connection->insert('events', ['tenant_id' => $tenantA->getId(), 'public_id' => $eventPublicId, 'primary_event_manager_id' => $owner->getId(), 'name' => 'Role Event', 'status' => 'draft', 'created_at' => gmdate('Y-m-d H:i:s')]);
+        $moduleId = (int) $connection->fetchOne("SELECT id FROM sport_modules WHERE code = 'running_event'");
+        $connection->insert('events', ['tenant_id' => $tenantA->getId(), 'public_id' => $eventPublicId, 'primary_event_manager_id' => $owner->getId(), 'module_id' => $moduleId, 'name' => 'Role Event', 'status' => 'draft', 'starts_on' => gmdate('Y-m-d'), 'ends_on' => gmdate('Y-m-d'), 'configuration' => '{}', 'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s')]);
 
         $access->assign($owner, $eventPublicId, $reader->getPublicId(), EventRole::ReadOnly, '127.0.0.1');
         self::assertTrue($access->canRead($reader, $eventPublicId));
