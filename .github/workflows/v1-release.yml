@@ -73,7 +73,19 @@ jobs:
         run: php bin/console doctrine:migrations:migrate --no-interaction --env=test
 
       - name: Run all tests and static checks
-        run: composer verify
+        shell: bash
+        run: |
+          verify_log="$RUNNER_TEMP/composer-verify.log"
+          set +e
+          composer verify >"$verify_log" 2>&1
+          verify_status=$?
+          set -e
+          cat "$verify_log"
+          if [ "$verify_status" -ne 0 ]; then
+            diagnostic=$(tail -n 120 "$verify_log" | php -r '$text = stream_get_contents(STDIN); echo str_replace(["%", "\r", "\n"], ["%25", "%0D", "%0A"], $text);')
+            echo "::error title=Release verification failed::$diagnostic"
+            exit "$verify_status"
+          fi
 
       - name: Warm production cache
         env:
