@@ -11,13 +11,14 @@ use App\Core\Domain\Tenant\TenantRole;
 use App\Core\Infrastructure\Doctrine\Entity\TenantUser;
 use App\Core\Infrastructure\Security\AuditLogger;
 use App\Core\Infrastructure\Tenancy\EventAccess;
+use App\Football\Application\FootballTransitionGuard;
 use App\Running\Application\RunningTransitionGuard;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Uid\Uuid;
 
 final readonly class EventService
 {
-    public function __construct(private Connection $connection, private EventStatusMachine $statuses, private EventAccess $access, private LicenseService $licenses, private AuditLogger $audit, private RunningTransitionGuard $runningGuard) {}
+    public function __construct(private Connection $connection, private EventStatusMachine $statuses, private EventAccess $access, private LicenseService $licenses, private AuditLogger $audit, private RunningTransitionGuard $runningGuard, private FootballTransitionGuard $footballGuard) {}
 
     /** @return list<array<string, mixed>> */
     public function listFor(TenantUser $user): array
@@ -64,6 +65,7 @@ final readonly class EventService
         if (!$this->access->canManage($actor, $publicId)) { throw new \DomainException('Keine Berechtigung für diesen Statuswechsel.'); }
         $event = $this->get($actor, $publicId); $from = EventStatus::from((string) $event['status']); $this->statuses->assertTransition($from, $target, $reason, $confirmed);
         $this->runningGuard->assertAllowed($event, $target);
+        $this->footballGuard->assertAllowed($event, $target);
         $changes = ['status' => $target->value, 'updated_at' => gmdate('Y-m-d H:i:s'), 'lock_version' => (int) $event['lock_version'] + 1];
         if ($target === EventStatus::Cancelled) { $changes['cancellation_reason'] = mb_substr(trim((string) $reason), 0, 1000); }
         if ($target === EventStatus::Completed) { $changes['completed_at'] = gmdate('Y-m-d H:i:s'); }

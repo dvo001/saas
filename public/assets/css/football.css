@@ -1,0 +1,16 @@
+.score-input,
+.card-input,
+.team-number-input {
+    width: 4.5rem;
+}
+
+.forfait-select {
+    width: 8.5rem;
+}
+
+@media (max-width: 767.98px) {
+    .score-input,
+    .card-input {
+        width: 3.75rem;
+    }
+}
