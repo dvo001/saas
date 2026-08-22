@@ -1,0 +1,11 @@
+{% extends 'base.html.twig' %}
+{% block title %}Druckansicht · {{ run.event.name }}{% endblock %}
+{% block stylesheets %}<link rel="stylesheet" href="/assets/css/running-print.css">{% endblock %}
+{% block javascripts %}<script src="/assets/js/running.js" defer></script>{% endblock %}
+{% block body %}
+<div class="no-print mb-3"><button type="button" data-running-print class="btn btn-primary">Drucken</button></div><h1>{{ run.event.name }}</h1>
+{% if document=='sheets' %}{% for p in run.participants %}<section class="sheet"><h2>Laufzettel {{ p.start_number }}</h2><p>{{ p.first_name }} {{ p.last_name }} · {{ p.category_name ?: 'keine Kategorie' }}</p><table class="table table-bordered">{% for n in 1..run.settings.qualification_runs %}<tr><th>Lauf {{ n }}</th><td class="running-time-field"></td></tr>{% endfor %}</table></section>{% endfor %}
+{% elseif document=='qualification' %}{% for group,rows in run.qualification %}<h2>{{ group }}</h2><ol>{% for row in rows %}{% set p=run.participants_by_id[row.id] %}<li>Rang {{ row.rank }} – {{ p.first_name }} {{ p.last_name }} · {{ row.times[0]|default(null)|running_time(run.settings.time_precision) }}</li>{% endfor %}</ol>{% endfor %}
+{% elseif document=='finalists' %}<h2>Bestätigte Finalisten</h2>{% for p in run.participants %}{% if p.finalist_confirmed %}<p>{{ p.final_start_order }}. {{ p.first_name }} {{ p.last_name }} · {{ p.category_name }}</p>{% endif %}{% endfor %}
+{% else %}{% for group,rows in run.finals %}<h2>{{ group }}</h2><ol>{% for row in rows %}{% set p=run.participants_by_id[row.id] %}<li>{{ row.rank|default('–') }} · {{ p.first_name }} {{ p.last_name }} · {% if row.status.value == 'valid' %}{{ row.time|running_time(run.settings.time_precision) }}{% else %}{{ row.status.value|upper }}{% endif %}</li>{% endfor %}</ol>{% endfor %}{% endif %}
+{% endblock %}

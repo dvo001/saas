@@ -7,6 +7,7 @@
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
     <link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css">
     <link rel="stylesheet" href="/assets/css/app.css">
+    {% block stylesheets %}{% endblock %}
     <script src="/assets/js/theme.js" defer></script>
 </head>
 <body>
@@ -40,5 +41,6 @@
             {% block body %}{% endblock %}
         </main>
     {% endblock %}
+    {% block javascripts %}{% endblock %}
 </body>
 </html>
