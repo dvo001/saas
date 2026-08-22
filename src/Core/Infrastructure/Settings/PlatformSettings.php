@@ -42,7 +42,7 @@ final readonly class PlatformSettings
     /** @param array<mixed>|bool|float|int|string|null $value */
     public function set(string $key, array|bool|float|int|string|null $value, PlatformAdmin $actor, string $ip): void
     {
-        if (!in_array($key, ['platform.name', 'platform.operator', 'mail.system_sender', 'cron.intervals', 'billing.vat_basis_points', 'billing.creditor'], true)) {
+        if (!in_array($key, ['platform.name', 'platform.operator', 'mail.system_sender', 'cron.intervals', 'billing.vat_basis_points', 'billing.creditor', 'uploads.logo_max_pixels'], true)) {
             throw new \DomainException('Diese Plattform-Einstellung darf hier nicht geändert werden.');
         }
 

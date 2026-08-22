@@ -14,7 +14,7 @@ use Symfony\Component\Uid\Uuid;
 
 final readonly class SubscriptionRenewalService
 {
-    public function __construct(private Connection $connection, private InvoiceCalculator $calculator, private SubscriptionPolicy $policy, private PlatformSettings $settings, private AuditLogger $audit) {}
+    public function __construct(private Connection $connection, private InvoiceCalculator $calculator, private SubscriptionPolicy $policy, private PlatformSettings $settings, private AuditLogger $audit, private InvoiceDeliveryService $delivery) {}
 
     public function processDue(?\DateTimeImmutable $now = null): int
     {
@@ -29,9 +29,9 @@ final readonly class SubscriptionRenewalService
 
     private function renew(int $subscriptionId, \DateTimeImmutable $now): bool
     {
-        return $this->connection->transactional(function (Connection $db) use ($subscriptionId, $now): bool {
+        $result = $this->connection->transactional(function (Connection $db) use ($subscriptionId, $now): ?array {
             $subscription = $db->fetchAssociative("SELECT * FROM subscriptions WHERE id = :id AND status = 'active' AND auto_renew = 1 AND ends_at > :now AND ends_at <= :until FOR UPDATE", ['id' => $subscriptionId, 'now' => $now->format('Y-m-d H:i:s'), 'until' => $now->add(new \DateInterval('P30D'))->format('Y-m-d H:i:s')]);
-            if ($subscription === false) { return false; }
+            if ($subscription === false) { return null; }
             $profile = $db->fetchAssociative('SELECT * FROM billing_profiles WHERE tenant_id = :tenant AND invoice_email_confirmed = 1', ['tenant' => $subscription['tenant_id']]);
             if ($profile === false) { throw new \DomainException('Für die automatische Verlängerung fehlen bestätigte Rechnungsdaten.'); }
             $items = $db->fetchAllAssociative(<<<'SQL'
@@ -63,13 +63,16 @@ final readonly class SubscriptionRenewalService
             if ($last === false) { $next = 1; $db->insert('invoice_sequences', ['sequence_year' => $year, 'document_type' => 'invoice', 'last_number' => 1]); } else { $next = (int) $last + 1; $db->update('invoice_sequences', ['last_number' => $next], ['sequence_year' => $year, 'document_type' => 'invoice']); }
             $invoiceIdPublic = Uuid::v7()->toRfc4122(); $issued = $now->format('Y-m-d H:i:s'); $due = $now->add(new \DateInterval('P30D'));
             $snapshot = array_intersect_key($profile, array_flip(['club_name', 'address_line', 'postal_code', 'city', 'country_code', 'invoice_email', 'contact_name', 'recipient', 'order_number', 'cost_center', 'invoice_reference'])) + ['payment_term_days' => 30, 'dunning_term_days' => 30];
-            $db->insert('invoices', ['tenant_id' => $subscription['tenant_id'], 'public_id' => $invoiceIdPublic, 'subscription_id' => $subscriptionId, 'coupon_id' => $coupon['id'] ?? null, 'document_type' => 'invoice', 'invoice_number' => $year.'-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT), 'status' => 'open', 'currency' => $totals->currency, 'subtotal_minor' => $totals->subtotalMinor, 'discount_minor' => $totals->discountMinor, 'vat_rate_basis_points' => $totals->vatRateBasisPoints, 'vat_minor' => $totals->vatMinor, 'total_minor' => $totals->totalMinor, 'billing_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR), 'qr_payload' => null, 'pdf_storage_path' => null, 'issued_at' => $issued, 'due_at' => $due->format('Y-m-d H:i:s'), 'reminder_due_at' => $due->add(new \DateInterval('P30D'))->format('Y-m-d H:i:s'), 'paid_at' => null, 'cancelled_at' => null, 'created_at' => $issued]);
+            $db->insert('invoices', ['tenant_id' => $subscription['tenant_id'], 'public_id' => $invoiceIdPublic, 'subscription_id' => $subscriptionId, 'coupon_id' => $coupon['id'] ?? null, 'document_type' => 'invoice', 'invoice_number' => $year.'-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT), 'status' => 'open', 'currency' => $totals->currency, 'subtotal_minor' => $totals->subtotalMinor, 'discount_minor' => $totals->discountMinor, 'vat_rate_basis_points' => $totals->vatRateBasisPoints, 'vat_minor' => $totals->vatMinor, 'total_minor' => $totals->totalMinor, 'billing_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR), 'qr_payload' => null, 'pdf_storage_path' => null, 'issued_at' => $issued, 'due_at' => $due->format('Y-m-d H:i:s'), 'reminder_due_at' => $due->add(new \DateInterval('P30D'))->format('Y-m-d H:i:s'), 'paid_at' => null, 'cancelled_at' => null, 'retention_until' => $now->add(new \DateInterval('P10Y'))->format('Y-m-d H:i:s'), 'created_at' => $issued]);
             $invoiceId = (int) $db->lastInsertId();
             foreach ($allItems as $position => $item) { $db->insert('invoice_lines', ['tenant_id' => $subscription['tenant_id'], 'invoice_id' => $invoiceId, 'price_version_id' => $item['price_id'], 'position' => $position + 1, 'description' => $item['name'], 'quantity' => 1, 'unit_price_minor' => $item['amount_minor'], 'line_total_minor' => $item['amount_minor'], 'service_starts_at' => $startsAt->format('Y-m-d H:i:s'), 'service_ends_at' => $endsAt->format('Y-m-d H:i:s')]); }
             $db->update('subscriptions', ['ends_at' => $endsAt->format('Y-m-d H:i:s'), 'updated_at' => $issued], ['id' => $subscriptionId, 'tenant_id' => $subscription['tenant_id']]);
             foreach ($items as $item) { $db->update('subscription_modules', ['price_version_id' => $item['price_id'], 'ends_at' => $endsAt->format('Y-m-d H:i:s')], ['id' => $item['subscription_module_id'], 'tenant_id' => $subscription['tenant_id']]); }
             if ($coupon !== false) { $db->update('coupons', ['redeemed_at' => $issued], ['id' => $coupon['id'], 'redeemed_at' => null]); }
-            return true;
+            return ['tenant_id' => (int) $subscription['tenant_id'], 'invoice_public_id' => $invoiceIdPublic];
         });
+        if ($result === null) { return false; }
+        $this->delivery->deliver($result['tenant_id'], $result['invoice_public_id']);
+        return true;
     }
 }

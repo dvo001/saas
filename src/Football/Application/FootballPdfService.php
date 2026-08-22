@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace App\Football\Application;
 
+use App\Core\Application\Document\EventPdfBranding;
+
 final readonly class FootballPdfService
 {
-    /** @param array<string, mixed> $football */
-    public function create(array $football, string $document): string
+    public function __construct(private ?EventPdfBranding $branding = null) {}
+
+    /**
+     * @param array<string, mixed> $football
+     * @param array{version?: int, created_at?: string} $metadata
+     */
+    public function create(array $football, string $document, array $metadata = []): string
     {
         if (($football['event']['status'] ?? null) === 'cancelled') { throw new \DomainException('Für abgebrochene Turniere dürfen keine offiziellen Fussballdokumente erzeugt werden.'); }
         $allowed = ['schedule', 'schedule_category', 'schedule_field', 'schedule_time', 'standings', 'finals', 'final_rankings'];
         if (!in_array($document, $allowed, true)) { throw new \DomainException('Unbekanntes Fussballdokument.'); }
-        $pdf = new \TCPDF('L', 'mm', 'A4', true, 'UTF-8'); $pdf->SetCreator('Swiss Club SaaS'); $pdf->SetAuthor((string) ($football['event']['name'] ?? '')); $pdf->SetMargins(12, 12, 12); $pdf->SetAutoPageBreak(true, 12);
+        $pdf = new \TCPDF('L', 'mm', 'A4', true, 'UTF-8'); if ($this->branding !== null) { $this->branding->apply($pdf, is_array($football['event'] ?? null) ? $football['event'] : [], $metadata); } else { $pdf->SetMargins(12, 12, 12); $pdf->SetAutoPageBreak(true, 12); }
         if (str_starts_with($document, 'schedule') || $document === 'finals') { $this->schedule($pdf, $football, $document); }
         elseif ($document === 'standings') { $this->standings($pdf, $football); }
         else { $this->finalRankings($pdf, $football); }

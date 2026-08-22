@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace App\Running\Application;
 
+use App\Core\Application\Document\EventPdfBranding;
 use App\Running\Domain\RunStatus;
 use App\Running\Domain\TimePrecision;
 use App\Running\Domain\TimeValue;
 
 final readonly class RunningPdfService
 {
-    /** @param array<string, mixed> $run */
-    public function create(array $run, string $document): string
+    public function __construct(private ?EventPdfBranding $branding = null) {}
+
+    /**
+     * @param array<string, mixed> $run
+     * @param array{version?: int, created_at?: string} $metadata
+     */
+    public function create(array $run, string $document, array $metadata = []): string
     {
         if (($run['event']['status'] ?? null) === 'cancelled') { throw new \DomainException('Für abgebrochene Veranstaltungen dürfen keine offiziellen Laufdokumente erzeugt werden.'); }
-        $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8'); $pdf->SetCreator('Swiss Club SaaS'); $pdf->SetAuthor((string) ($run['event']['name'] ?? '')); $pdf->SetMargins(15, 15, 15); $pdf->SetAutoPageBreak(true, 15);
+        $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8'); if ($this->branding !== null) { $this->branding->apply($pdf, is_array($run['event'] ?? null) ? $run['event'] : [], $metadata); } else { $pdf->SetMargins(15, 15, 15); $pdf->SetAutoPageBreak(true, 15); }
         if ($document === 'sheets') { $this->sheets($pdf, $run); } else { $this->rankings($pdf, $run, $document); }
         return $pdf->Output('', 'S');
     }
@@ -49,5 +55,6 @@ final readonly class RunningPdfService
                 $pdf->Cell(0, 8, $participant['first_name'].' '.$participant['last_name'].'  '.$time, 1, 1);
             }
         }
+        if ($groups === []) { $pdf->AddPage(); $pdf->SetFont('helvetica', '', 12); $pdf->Cell(0, 10, 'Keine Ranglistendaten verfügbar.', 0, 1); }
     }
 }

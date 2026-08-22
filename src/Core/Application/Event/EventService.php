@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core\Application\Event;
 
 use App\Core\Application\Billing\LicenseService;
+use App\Core\Application\Document\EventDocumentService;
 use App\Core\Domain\Event\EventStatus;
 use App\Core\Domain\Event\EventStatusMachine;
 use App\Core\Domain\Tenant\TenantRole;
@@ -18,7 +19,7 @@ use Symfony\Component\Uid\Uuid;
 
 final readonly class EventService
 {
-    public function __construct(private Connection $connection, private EventStatusMachine $statuses, private EventAccess $access, private LicenseService $licenses, private AuditLogger $audit, private RunningTransitionGuard $runningGuard, private FootballTransitionGuard $footballGuard) {}
+    public function __construct(private Connection $connection, private EventStatusMachine $statuses, private EventAccess $access, private LicenseService $licenses, private AuditLogger $audit, private RunningTransitionGuard $runningGuard, private FootballTransitionGuard $footballGuard, private EventDocumentService $documents) {}
 
     /** @return list<array<string, mixed>> */
     public function listFor(TenantUser $user): array
@@ -66,12 +67,14 @@ final readonly class EventService
         $event = $this->get($actor, $publicId); $from = EventStatus::from((string) $event['status']); $this->statuses->assertTransition($from, $target, $reason, $confirmed);
         $this->runningGuard->assertAllowed($event, $target);
         $this->footballGuard->assertAllowed($event, $target);
+        if ($target === EventStatus::Completed) { $this->documents->releaseFinalDocuments($actor, $event, $ip); }
         $changes = ['status' => $target->value, 'updated_at' => gmdate('Y-m-d H:i:s'), 'lock_version' => (int) $event['lock_version'] + 1];
         if ($target === EventStatus::Cancelled) { $changes['cancellation_reason'] = mb_substr(trim((string) $reason), 0, 1000); }
         if ($target === EventStatus::Completed) { $changes['completed_at'] = gmdate('Y-m-d H:i:s'); }
         if ($target === EventStatus::Archived) { $changes['archived_at'] = gmdate('Y-m-d H:i:s'); }
         $affected = $this->connection->update('events', $changes, ['tenant_id' => $actor->getTenant()->getId(), 'public_id' => $publicId, 'lock_version' => $event['lock_version']]);
         if ($affected !== 1) { throw new \DomainException('Die Veranstaltung wurde zwischenzeitlich geändert. Bitte laden Sie die Seite neu.'); }
+        if ($target === EventStatus::Archived) { $this->documents->pruneOnArchive($event); }
         $this->audit->log('event.status_changed', 'event', $publicId, $actor->getTenant(), $actor, ['old' => $from->value, 'new' => $target->value, 'reason' => $reason], $ip);
     }
 
@@ -85,7 +88,7 @@ final readonly class EventService
     public function deleteArchived(TenantUser $actor, string $publicId, bool $confirmed, string $ip): void
     {
         $this->requireAdministrator($actor); if (!$confirmed) { throw new \DomainException('Die endgültige Löschung muss bestätigt werden.'); } $event = $this->get($actor, $publicId); if ($event['status'] !== 'archived') { throw new \DomainException('Nur archivierte Veranstaltungen können gelöscht werden.'); }
-        $this->audit->log('event.deleted', 'event', $publicId, $actor->getTenant(), $actor, ['name' => $event['name']], $ip); $this->connection->delete('events', ['tenant_id' => $actor->getTenant()->getId(), 'public_id' => $publicId]);
+        $this->audit->log('event.deleted', 'event', $publicId, $actor->getTenant(), $actor, ['name' => $event['name']], $ip); $this->documents->removeAllFiles($event); $this->connection->delete('events', ['tenant_id' => $actor->getTenant()->getId(), 'public_id' => $publicId]);
     }
 
     /** @return list<array<string, mixed>> */

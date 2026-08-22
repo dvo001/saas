@@ -24,6 +24,7 @@ final readonly class SubscriptionBillingService
         private SubscriptionPolicy $policy,
         private PlatformSettings $settings,
         private AuditLogger $audit,
+        private InvoiceDeliveryService $delivery,
     ) {}
 
     /** @return array{main_products: list<array<string, mixed>>, modules: list<array<string, mixed>>} */
@@ -146,7 +147,7 @@ final readonly class SubscriptionBillingService
             $invoiceNumber = $this->nextInvoiceNumber($db, $now, 'invoice');
             $snapshot = ['club_name' => $profile['club_name'], 'address_line' => $profile['address_line'], 'postal_code' => $profile['postal_code'], 'city' => $profile['city'], 'country_code' => $profile['country_code'], 'invoice_email' => $profile['invoice_email'], 'contact_name' => $profile['contact_name'], 'recipient' => $profile['recipient'], 'order_number' => $profile['order_number'], 'cost_center' => $profile['cost_center'], 'invoice_reference' => $profile['invoice_reference'], 'payment_term_days' => 30, 'dunning_term_days' => 30];
             $dueAt = $now->add(new \DateInterval('P30D'));
-            $db->insert('invoices', ['tenant_id' => $tenantId, 'public_id' => $invoicePublicId, 'subscription_id' => $subscriptionId, 'coupon_id' => $coupon['id'] ?? null, 'document_type' => 'invoice', 'invoice_number' => $invoiceNumber, 'status' => 'open', 'currency' => $totals->currency, 'subtotal_minor' => $totals->subtotalMinor, 'discount_minor' => $totals->discountMinor, 'vat_rate_basis_points' => $totals->vatRateBasisPoints, 'vat_minor' => $totals->vatMinor, 'total_minor' => $totals->totalMinor, 'billing_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR), 'qr_payload' => null, 'pdf_storage_path' => null, 'issued_at' => $now->format('Y-m-d H:i:s'), 'due_at' => $dueAt->format('Y-m-d H:i:s'), 'reminder_due_at' => $dueAt->add(new \DateInterval('P30D'))->format('Y-m-d H:i:s'), 'paid_at' => null, 'cancelled_at' => null, 'created_at' => $now->format('Y-m-d H:i:s')]);
+            $db->insert('invoices', ['tenant_id' => $tenantId, 'public_id' => $invoicePublicId, 'subscription_id' => $subscriptionId, 'coupon_id' => $coupon['id'] ?? null, 'document_type' => 'invoice', 'invoice_number' => $invoiceNumber, 'status' => 'open', 'currency' => $totals->currency, 'subtotal_minor' => $totals->subtotalMinor, 'discount_minor' => $totals->discountMinor, 'vat_rate_basis_points' => $totals->vatRateBasisPoints, 'vat_minor' => $totals->vatMinor, 'total_minor' => $totals->totalMinor, 'billing_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR), 'qr_payload' => null, 'pdf_storage_path' => null, 'issued_at' => $now->format('Y-m-d H:i:s'), 'due_at' => $dueAt->format('Y-m-d H:i:s'), 'reminder_due_at' => $dueAt->add(new \DateInterval('P30D'))->format('Y-m-d H:i:s'), 'paid_at' => null, 'cancelled_at' => null, 'retention_until' => $now->add(new \DateInterval('P10Y'))->format('Y-m-d H:i:s'), 'created_at' => $now->format('Y-m-d H:i:s')]);
             $invoiceId = (int) $db->lastInsertId();
             $items = array_merge([$main], $modules);
             foreach ($items as $position => $item) {
@@ -158,6 +159,7 @@ final readonly class SubscriptionBillingService
             return $invoicePublicId;
         });
         $this->audit->log('subscription.booked', 'invoice', $invoicePublicId, $tenant, $actor, ['main_product' => $mainProductPublicId, 'module_products' => $moduleProductPublicIds], $ip);
+        $this->delivery->deliver($tenantId, $invoicePublicId);
 
         return $invoicePublicId;
     }
@@ -190,7 +192,7 @@ final readonly class SubscriptionBillingService
             if ($invoice === false || !in_array($invoice['status'], ['open', 'overdue', 'dunning'], true)) { throw new \DomainException('Die Rechnung ist nicht offen.'); }
             $tenantId = (int) $invoice['tenant_id'];
             $now = gmdate('Y-m-d H:i:s');
-            $db->insert('payment_transactions', ['tenant_id' => $tenantId, 'invoice_id' => $invoice['id'], 'public_id' => Uuid::v7()->toRfc4122(), 'payment_method' => 'invoice_manual', 'provider_key' => null, 'provider_reference' => null, 'status' => 'completed', 'amount_minor' => $invoice['total_minor'], 'currency' => $invoice['currency'], 'provider_data' => null, 'received_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+            $db->insert('payment_transactions', ['tenant_id' => $tenantId, 'invoice_id' => $invoice['id'], 'public_id' => Uuid::v7()->toRfc4122(), 'payment_method' => 'invoice_manual', 'provider_key' => null, 'provider_reference' => null, 'status' => 'completed', 'amount_minor' => $invoice['total_minor'], 'currency' => $invoice['currency'], 'provider_data' => null, 'received_at' => $now, 'retention_until' => (new \DateTimeImmutable($now, new \DateTimeZone('UTC')))->add(new \DateInterval('P10Y'))->format('Y-m-d H:i:s'), 'created_at' => $now, 'updated_at' => $now]);
             $db->update('invoices', ['status' => 'paid', 'paid_at' => $now], ['id' => $invoice['id'], 'tenant_id' => $tenantId]);
             if ($db->fetchOne("SELECT 1 FROM invoices WHERE tenant_id = :tenant AND status IN ('open', 'overdue', 'dunning') AND reminder_due_at < UTC_TIMESTAMP()", ['tenant' => $tenantId]) === false) { $db->update('tenants', ['status' => 'active'], ['id' => $tenantId, 'status' => 'suspended']); }
             return $tenantId;
