@@ -6,11 +6,11 @@ namespace App\Core\Domain\Billing;
 
 final class SubscriptionPolicy
 {
-    public const int TERM_MONTHS = 12;
-    public const int RENEWAL_NOTICE_DAYS = 30;
-    public const int RENEWAL_CHANGE_DEADLINE_DAYS = 7;
-    public const int MAX_MODULE_RETENTION_DAYS = 365;
-    public const int PAID_ACCOUNT_RETENTION_DAYS = 90;
+    public const TERM_MONTHS = 12;
+    public const RENEWAL_NOTICE_DAYS = 30;
+    public const RENEWAL_CHANGE_DEADLINE_DAYS = 7;
+    public const MAX_MODULE_RETENTION_DAYS = 365;
+    public const PAID_ACCOUNT_RETENTION_DAYS = 90;
 
     public function annualEnd(\DateTimeImmutable $startsAt): \DateTimeImmutable
     {
