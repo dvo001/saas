@@ -1,0 +1,14 @@
+.running-time-field {
+    height: 3rem;
+}
+
+@media print {
+    nav,
+    .no-print {
+        display: none;
+    }
+
+    .sheet {
+        break-after: page;
+    }
+}
