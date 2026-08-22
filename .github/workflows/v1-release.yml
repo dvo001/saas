@@ -55,7 +55,19 @@ jobs:
         run: composer validate --strict
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+        shell: bash
+        run: |
+          install_log="$RUNNER_TEMP/composer-install.log"
+          set +e
+          composer install --no-interaction --prefer-dist >"$install_log" 2>&1
+          install_status=$?
+          set -e
+          cat "$install_log"
+          if [ "$install_status" -ne 0 ]; then
+            diagnostic=$(tail -n 80 "$install_log" | php -r '$text = stream_get_contents(STDIN); echo str_replace(["%", "\r", "\n"], ["%25", "%0D", "%0A"], $text);')
+            echo "::error title=Composer install failed::$diagnostic"
+            exit "$install_status"
+          fi
 
       - name: Migrate fresh MariaDB schema
         run: php bin/console doctrine:migrations:migrate --no-interaction --env=test
