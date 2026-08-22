@@ -1,3 +1,6 @@
+parameters:
+  app.install_lock_path: '%kernel.project_dir%/var/test-installed.lock'
+
 framework:
   test: true
   session:

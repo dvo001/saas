@@ -1,6 +1,5 @@
 framework:
   secret: '%env(APP_SECRET)%'
-  trusted_hosts: ['%env(APP_TRUSTED_HOST)%']
   default_locale: de_CH
   translator:
     default_path: '%kernel.project_dir%/translations'
@@ -27,5 +26,6 @@ framework:
 
 when@prod:
   framework:
+    trusted_hosts: ['%env(APP_TRUSTED_HOST)%']
     session:
       cookie_secure: true

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Core\Presentation\Web\EventSubscriber;
 
 use App\Core\Infrastructure\Doctrine\Entity\TenantUser;
+use App\Core\Infrastructure\Tenancy\TenantContext;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -19,6 +21,7 @@ final readonly class TenantSessionSubscriber implements EventSubscriberInterface
     public function __construct(
         private TokenStorageInterface $tokens,
         private UrlGeneratorInterface $urls,
+        private TenantContext $tenantContext,
     ) {}
 
     public static function getSubscribedEvents(): array
@@ -35,6 +38,11 @@ final readonly class TenantSessionSubscriber implements EventSubscriberInterface
         $user = $this->tokens->getToken()?->getUser();
         if (!$user instanceof TenantUser) {
             return;
+        }
+
+        $requestTenant = $this->tenantContext->getOrNull();
+        if ($requestTenant !== null && $requestTenant->getPublicId() !== $user->getTenant()->getPublicId()) {
+            throw new NotFoundHttpException('Dieser Verein wurde nicht gefunden.');
         }
 
         $request = $event->getRequest();

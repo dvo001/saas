@@ -5,22 +5,22 @@
 {% block body %}
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-end mb-4">
         <div>
-            <span class="eyebrow">Application Core</span>
+            <span class="eyebrow">Version 1</span>
             <h1 class="display-6 fw-semibold mb-2">{{ platform_name }}</h1>
-            <p class="text-body-secondary mb-0">Die technische Basis ist installiert. Vereine und Veranstaltungen folgen in den nächsten Milestones.</p>
+            <p class="text-body-secondary mb-0">Vereinsverwaltung für Laufanlässe und Fussballturniere – mandantenfähig, sicher und für Schweizer Shared Hosting ausgelegt.</p>
         </div>
         <button class="btn btn-outline-secondary" type="button" data-theme-toggle>◐ Darstellung wechseln</button>
     </div>
 
     <div class="row g-4">
         <div class="col-md-6 col-xl-4">
-            <section class="card h-100 border-0 shadow-sm"><div class="card-body p-4"><span class="status-dot status-ok"></span><h2 class="h5 mt-3">System bereit</h2><p class="text-body-secondary mb-0">Konfiguration, Migrationen und private Dateistruktur sind aktiv.</p></div></section>
+            <section class="card h-100 border-0 shadow-sm"><div class="card-body p-4"><span class="status-dot status-ok"></span><h2 class="h5 mt-3">Laufanlässe</h2><p class="text-body-secondary">Teilnehmende, Qualifikationsläufe, Finalisten, Ranglisten und PDFs in einem durchgängigen Ablauf.</p></div></section>
         </div>
         <div class="col-md-6 col-xl-4">
-            <section class="card h-100 border-0 shadow-sm"><div class="card-body p-4"><span class="status-dot status-next"></span><h2 class="h5 mt-3">Nächster Schritt</h2><p class="text-body-secondary mb-0">Authentifizierung, Mandanten und Rollen werden in Milestone 2 umgesetzt.</p></div></section>
+            <section class="card h-100 border-0 shadow-sm"><div class="card-body p-4"><span class="status-dot status-ok"></span><h2 class="h5 mt-3">Fussballturniere</h2><p class="text-body-secondary">Flexible Kategorien, Gruppen, Spielplanung, Resultate, K.-o.-Runden und Veröffentlichungen.</p></div></section>
         </div>
         <div class="col-md-6 col-xl-4">
-            <section class="card h-100 border-0 shadow-sm"><div class="card-body p-4"><span class="status-dot"></span><h2 class="h5 mt-3">Zeitzone</h2><p class="text-body-secondary mb-0">Europe/Zurich · Oberfläche Deutsch (Schweiz)</p></div></section>
+            <section class="card h-100 border-0 shadow-sm"><div class="card-body p-4"><span class="status-dot"></span><h2 class="h5 mt-3">Verein starten</h2><p class="text-body-secondary">Verein registrieren und das gewählte Sportmodul 14 Tage testen.</p><a class="btn btn-primary" href="{{ path('registration') }}">Verein registrieren</a></div></section>
         </div>
     </div>
 {% endblock %}

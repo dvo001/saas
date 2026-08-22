@@ -15,21 +15,32 @@ Exporte, Logs und Secrets liegen absichtlich außerhalb von `public/`.
 
 ## Erstinstallation mit dem Web-Installer
 
-1. Release entpacken und Abhängigkeiten installieren:
+1. Release entpacken, die Installationsvorlage kopieren und darin `DEFAULT_URI`,
+   `APP_TRUSTED_HOST`, `MAIL_FROM` sowie ein mit `openssl rand -hex 32` erzeugtes
+   `APP_SECRET` setzen:
 
    ```bash
-   composer install --no-dev --classmap-authoritative --no-interaction
+   cp .env.install.example .env.local
    ```
 
-2. Domain/Virtual Host auf `<projekt>/public` richten.
-3. Eine leere MariaDB-Datenbank mit eigenem Benutzer erstellen.
-4. Sicherstellen, dass `var/`, `storage/` und für die einmalige Installation das
+   Die Host-Regel ist ein regulärer Ausdruck ohne Trennzeichen. Für
+   `https://club.example.ch` lautet sie `^club\.example\.ch$`.
+
+2. Abhängigkeiten im Produktionsmodus installieren:
+
+   ```bash
+   APP_ENV=prod APP_DEBUG=0 composer install --no-dev --classmap-authoritative --no-interaction
+   ```
+
+3. Domain/Virtual Host auf `<projekt>/public` richten.
+4. Eine leere MariaDB-Datenbank mit eigenem Benutzer erstellen.
+5. Sicherstellen, dass `var/`, `storage/` und für die einmalige Installation das
    Projektverzeichnis durch PHP beschreibbar sind.
-5. `https://<domain>/install` aufrufen und Systemcheck, Datenbank, Mailversand samt
+6. `https://<domain>/install` aufrufen und Systemcheck, Datenbank, Mailversand samt
    gültiger Absenderadresse, Plattformdaten sowie den ersten Plattformadmin erfassen.
-6. Nach Abschluss prüfen, dass `storage/installed.lock` existiert und in
+7. Nach Abschluss prüfen, dass `storage/installed.lock` existiert und in
    `.env.local` `APP_ENV=prod`, `APP_DEBUG=0` und `APP_INSTALLER_ENABLED=0` stehen.
-7. Schreibrechte am Projektverzeichnis wieder entfernen; nur `var/` und `storage/`
+8. Schreibrechte am Projektverzeichnis wieder entfernen; nur `var/` und `storage/`
    bleiben beschreibbar.
 
 Der Installer erzeugt individuelle Secrets, führt alle Migrationen aus und sperrt

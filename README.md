@@ -1,9 +1,9 @@
 # Vereinssport Schweiz
 
-Modulare SaaS-Plattform für kleine Schweizer Sportvereine. Version 1 wird für
-Laufanlässe und Fussballturniere entwickelt.
+Modulare SaaS-Plattform für kleine Schweizer Sportvereine mit Laufanlässen und
+Fussballturnieren.
 
-Der aktuelle Stand ist **Milestone 11** und damit der vollständige Version-1-Umfang.
+Der aktuelle Stand ist der **Version-1-Release-Candidate (Milestone 12)**.
 Neben den Plattform- und Vereinsfunktionen sind Lauf- und Fussballveranstaltungen,
 Dokumente, Exporte, Aufbewahrung sowie die abschließende UI-, Security- und
 Deployment-Härtung umgesetzt.
@@ -23,17 +23,19 @@ sowie die [Cyon-/Shared-Hosting-Anleitung](docs/DEPLOYMENT_SHARED_HOSTING.md).
 
 ## Installation (Kurzfassung)
 
-1. Leere MariaDB-Datenbank und einen darauf berechtigten Benutzer erstellen.
-2. Abhängigkeiten installieren:
+1. `.env.install.example` als `.env.local` kopieren, Domain eintragen und ein
+   zufälliges `APP_SECRET` setzen.
+2. Leere MariaDB-Datenbank und einen darauf berechtigten Benutzer erstellen.
+3. Abhängigkeiten installieren:
 
    ```bash
-   composer install --no-interaction
+   APP_ENV=prod APP_DEBUG=0 composer install --no-dev --classmap-authoritative --no-interaction
    ```
 
-3. Apache-DocumentRoot auf `public/` setzen und Schreibrechte für `var/`,
+4. Apache-DocumentRoot auf `public/` setzen und Schreibrechte für `var/`,
    `storage/` sowie das Projektverzeichnis während der Installation gewähren.
-4. `/install` im Browser öffnen.
-5. Systemcheck, Datenbank, Plattformdaten und ersten Plattformadmin erfassen.
+5. `/install` im Browser öffnen.
+6. Systemcheck, Datenbank, Plattformdaten und ersten Plattformadmin erfassen.
 
 Der Installer führt die Doctrine-Migrationen aus, schreibt Secrets in die
 nicht versionierte `.env.local` und erzeugt `storage/installed.lock`. Danach ist
@@ -106,7 +108,7 @@ in [docs/INSTALLATION.md](docs/INSTALLATION.md) dokumentiert.
 
 - Secrets gehören ausschließlich in `.env.local` oder Server-Umgebungsvariablen.
 - Uploads liegen unter `storage/uploads/`, Exporte unter `storage/exports/`.
-- Beide Verzeichnisse liegen außerhalb von `public/` und werden später nur über
+- Beide Verzeichnisse liegen außerhalb von `public/` und werden nur über
   autorisierte Controller ausgeliefert.
 - Produktionslogs liegen unter `var/log/` und enthalten für technische Fehler
   eine Benutzer-referenzierbare Fehler-ID.
