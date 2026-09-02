@@ -90,7 +90,7 @@
     "post-update-cmd": ["@auto-scripts", "@assets:publish"],
     "assets:publish": "@php bin/publish-assets.php",
     "test": "phpunit",
-    "analyse": "phpstan analyse",
+    "analyse": "phpstan analyse --memory-limit=512M",
     "verify": [
       "@test",
       "@analyse",

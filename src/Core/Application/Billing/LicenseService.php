@@ -15,9 +15,13 @@ final readonly class LicenseService
     /** @return list<array{code: string, name: string}> */
     public function licensedModules(Tenant $tenant): array
     {
-        $modules = $this->connection->fetchAllAssociative('SELECT code, name FROM sport_modules WHERE active = 1 ORDER BY name');
+        $rows = $this->connection->fetchAllAssociative('SELECT code, name FROM sport_modules WHERE active = 1 ORDER BY name');
+        $modules = array_map(
+            static fn (array $module): array => ['code' => (string) $module['code'], 'name' => (string) $module['name']],
+            $rows,
+        );
 
-        return array_values(array_filter($modules, fn (array $module): bool => $this->isLicensed($tenant, (string) $module['code'])));
+        return array_values(array_filter($modules, fn (array $module): bool => $this->isLicensed($tenant, $module['code'])));
     }
 
     public function isLicensed(Tenant $tenant, string $moduleCode, ?\DateTimeImmutable $now = null): bool
