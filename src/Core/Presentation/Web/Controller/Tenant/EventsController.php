@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Core\Presentation\Web\Controller\Tenant;
 
+use App\Core\Application\Billing\LicenseService;
 use App\Core\Application\Document\EventDocumentService;
 use App\Core\Application\Event\EventService;
 use App\Core\Domain\Event\EventStatus;
 use App\Core\Infrastructure\Doctrine\Entity\TenantUser;
 use App\Core\Infrastructure\Tenancy\TenantContext;
-use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -20,11 +20,11 @@ use Symfony\Component\Routing\Attribute\Route;
 final class EventsController extends AbstractController
 {
     #[Route('/v/{slug}/veranstaltungen', name: 'tenant_events', methods: ['GET', 'POST'])]
-    public function index(Request $request, TenantContext $context, EventService $events, Connection $connection): Response
+    public function index(Request $request, TenantContext $context, EventService $events, LicenseService $licenses): Response
     {
         $user = $this->getUser(); if (!$user instanceof TenantUser) { throw $this->createAccessDeniedException(); } $error = null;
         if ($request->isMethod('POST')) { try { if (!$this->isCsrfTokenValid('event_create', $request->request->getString('_token'))) { throw $this->createAccessDeniedException(); } $id = $events->create($user, $request->request->all(), $request->getClientIp() ?? ''); return $this->redirectToRoute('tenant_event', ['slug' => $context->get()->getSlug(), 'id' => $id]); } catch (\DomainException $e) { $error = $e->getMessage(); } }
-        return $this->render('tenant/events/index.html.twig', ['tenant' => $context->get(), 'events' => $events->listFor($user), 'modules' => $connection->fetchAllAssociative('SELECT code, name FROM sport_modules WHERE active = 1 ORDER BY name'), 'templates' => $events->creationOptions($user), 'error' => $error]);
+        return $this->render('tenant/events/index.html.twig', ['tenant' => $context->get(), 'events' => $events->listFor($user), 'modules' => $licenses->licensedModules($context->get()), 'templates' => $events->creationOptions($user), 'error' => $error]);
     }
 
     #[Route('/v/{slug}/veranstaltungen/{id}', name: 'tenant_event', methods: ['GET'])]

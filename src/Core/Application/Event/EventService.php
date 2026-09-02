@@ -80,7 +80,7 @@ final readonly class EventService
 
     public function duplicate(TenantUser $actor, string $publicId, string $name, string $ip): string
     {
-        if (!$this->access->canManage($actor, $publicId)) { throw new \DomainException('Keine Berechtigung.'); } $source = $this->get($actor, $publicId); $newId = Uuid::v7()->toRfc4122(); $now = gmdate('Y-m-d H:i:s');
+        if (!$this->access->canManage($actor, $publicId)) { throw new \DomainException('Keine Berechtigung.'); } $source = $this->get($actor, $publicId); $this->licenses->denyUnlessLicensed($actor->getTenant(), (string) $source['module_code']); $newId = Uuid::v7()->toRfc4122(); $now = gmdate('Y-m-d H:i:s');
         $this->connection->transactional(function (Connection $db) use ($actor, $source, $newId, $name, $now): void { $db->insert('events', ['tenant_id' => $source['tenant_id'], 'public_id' => $newId, 'primary_event_manager_id' => $actor->getId(), 'module_id' => $source['module_id'], 'template_version_id' => $source['template_version_id'], 'name' => mb_substr(trim($name), 0, 180), 'status' => 'draft', 'starts_on' => $source['starts_on'], 'ends_on' => $source['ends_on'], 'location' => $source['location'], 'internal_notes' => $source['internal_notes'], 'configuration' => $source['configuration'], 'cancellation_reason' => null, 'completed_at' => null, 'archived_at' => null, 'created_at' => $now, 'updated_at' => $now, 'lock_version' => 1]); $db->insert('event_user_assignments', ['tenant_id' => $source['tenant_id'], 'event_id' => (int) $db->lastInsertId(), 'user_id' => $actor->getId(), 'event_role' => 'event_manager', 'created_at' => $now]); });
         $this->audit->log('event.duplicated', 'event', $newId, $actor->getTenant(), $actor, ['source' => $publicId], $ip); return $newId;
     }
@@ -92,7 +92,12 @@ final readonly class EventService
     }
 
     /** @return list<array<string, mixed>> */
-    public function creationOptions(TenantUser $actor): array { return $this->connection->fetchAllAssociative("SELECT t.public_id, t.name, sm.code AS module_code FROM event_templates t JOIN sport_modules sm ON sm.id = t.module_id WHERE t.active = 1 AND (t.scope = 'global' OR t.tenant_id = :tenant) ORDER BY sm.name, t.scope, t.name", ['tenant' => $actor->getTenant()->getId()]); }
+    public function creationOptions(TenantUser $actor): array
+    {
+        $templates = $this->connection->fetchAllAssociative("SELECT t.public_id, t.name, sm.code AS module_code FROM event_templates t JOIN sport_modules sm ON sm.id = t.module_id WHERE t.active = 1 AND (t.scope = 'global' OR t.tenant_id = :tenant) ORDER BY sm.name, t.scope, t.name", ['tenant' => $actor->getTenant()->getId()]);
+
+        return array_values(array_filter($templates, fn (array $template): bool => $this->licenses->isLicensed($actor->getTenant(), (string) $template['module_code'])));
+    }
     /**
      * @param array<string, mixed> $input
      * @return array{0: string, 1: string}

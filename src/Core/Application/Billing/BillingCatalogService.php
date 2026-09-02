@@ -15,7 +15,7 @@ final readonly class BillingCatalogService
     public function __construct(private Connection $connection, private AuditLogger $audit) {}
 
     /** @return list<array<string, mixed>> */
-    public function products(): array
+    public function products(bool $includeInactive = false): array
     {
         return $this->connection->fetchAllAssociative(<<<'SQL'
             SELECT bp.public_id, bp.product_key, bp.product_type, bp.name, bp.active, sm.code AS module_code,
@@ -27,8 +27,9 @@ final readonly class BillingCatalogService
                 WHERE p.billing_product_id = bp.id AND p.valid_from <= UTC_TIMESTAMP()
                 ORDER BY p.valid_from DESC, p.id DESC LIMIT 1
             )
+            WHERE (:include_inactive = 1 OR bp.active = 1)
             ORDER BY bp.product_type, bp.name
-            SQL);
+            SQL, ['include_inactive' => $includeInactive ? 1 : 0]);
     }
 
     /** @return list<array<string, mixed>> */
@@ -152,6 +153,64 @@ final readonly class BillingCatalogService
             throw new \DomainException('Das Produkt wurde nicht gefunden.');
         }
         $this->audit->logPlatform($active ? 'billing.product.activated' : 'billing.product.deactivated', 'billing_product', $publicId, $admin, [], null, $ip);
+    }
+
+    public function deleteProduct(PlatformAdmin $admin, string $publicId, string $ip): void
+    {
+        $this->connection->transactional(function (Connection $db) use ($admin, $publicId, $ip): void {
+            $product = $db->fetchAssociative(<<<'SQL'
+                SELECT bp.id, bp.module_id, bp.product_key, bp.name, bp.product_type,
+                       sm.active AS module_active,
+                       EXISTS (
+                           SELECT 1 FROM price_versions current_pv
+                           WHERE current_pv.billing_product_id = bp.id AND current_pv.valid_from <= UTC_TIMESTAMP()
+                       ) AS has_current_price
+                FROM billing_products bp
+                LEFT JOIN sport_modules sm ON sm.id = bp.module_id
+                WHERE bp.public_id = :public_id
+                FOR UPDATE
+                SQL, ['public_id' => $publicId]);
+            if ($product === false) {
+                throw new \DomainException('Das Produkt wurde nicht gefunden.');
+            }
+            $used = $db->fetchOne(<<<'SQL'
+                SELECT 1
+                FROM price_versions pv
+                WHERE pv.billing_product_id = :product
+                  AND (
+                      EXISTS (SELECT 1 FROM subscription_modules smod WHERE smod.price_version_id = pv.id)
+                      OR EXISTS (SELECT 1 FROM invoice_lines il WHERE il.price_version_id = pv.id)
+                  )
+                LIMIT 1
+                SQL, ['product' => $product['id']]);
+            if ($used !== false) {
+                throw new \DomainException('Ein bereits in einem Abo oder einer Rechnung verwendetes Produkt kann aus rechtlichen Gründen nicht gelöscht werden. Deaktivieren Sie es stattdessen.');
+            }
+            if ($product['module_id'] !== null && (bool) $product['module_active'] && (bool) $product['has_current_price'] && $db->fetchOne(<<<'SQL'
+                SELECT 1
+                FROM billing_products other_bp
+                INNER JOIN price_versions pv ON pv.id = (
+                    SELECT p.id FROM price_versions p
+                    WHERE p.billing_product_id = other_bp.id AND p.valid_from <= UTC_TIMESTAMP()
+                    ORDER BY p.valid_from DESC, p.id DESC LIMIT 1
+                )
+                WHERE other_bp.module_id = :module_id
+                  AND other_bp.product_type = 'sport_module'
+                  AND other_bp.active = 1
+                  AND other_bp.id <> :product_id
+                LIMIT 1
+                SQL, ['module_id' => $product['module_id'], 'product_id' => $product['id']]) === false) {
+                throw new \DomainException('Das letzte aktuell bepreiste Produkt eines aktiven Sportmoduls kann nicht gelöscht werden. Deaktivieren Sie zuerst das Sportmodul.');
+            }
+
+            $db->delete('price_versions', ['billing_product_id' => $product['id']]);
+            $db->delete('billing_products', ['id' => $product['id']]);
+            $this->audit->logPlatform('billing.product.deleted', 'billing_product', $publicId, $admin, [
+                'product_key' => $product['product_key'],
+                'name' => $product['name'],
+                'type' => $product['product_type'],
+            ], null, $ip);
+        });
     }
 
     public function setModuleActive(PlatformAdmin $admin, string $code, bool $active, string $ip): void

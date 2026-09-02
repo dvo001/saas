@@ -28,7 +28,9 @@ final class PlatformBillingCatalogController extends AbstractController
             } catch (\DomainException $exception) { $error = $exception->getMessage(); }
         }
 
-        return $this->render('platform/billing/products.html.twig', ['products' => $catalog->products(), 'modules' => $catalog->modules(), 'error' => $error]);
+        $includeInactive = $request->query->getBoolean('mit_deaktivierten');
+
+        return $this->render('platform/billing/products.html.twig', ['products' => $catalog->products($includeInactive), 'modules' => $catalog->modules(), 'include_inactive' => $includeInactive, 'error' => $error]);
     }
 
     #[Route('/platform/produkte/{publicId}/preis', name: 'platform_billing_price', methods: ['POST'])]
@@ -43,7 +45,7 @@ final class PlatformBillingCatalogController extends AbstractController
             $this->addFlash('success', 'Die neue Preisversion wurde gespeichert.');
         } catch (\DomainException $exception) { $this->addFlash('danger', $exception->getMessage()); }
 
-        return $this->redirectToRoute('platform_billing_products');
+        return $this->redirectToRoute('platform_billing_products', $this->filterParameters($request));
     }
 
     #[Route('/platform/produkte/{publicId}/{action}', name: 'platform_billing_product_action', requirements: ['action' => 'aktivieren|deaktivieren'], methods: ['POST'])]
@@ -55,7 +57,21 @@ final class PlatformBillingCatalogController extends AbstractController
             $this->addFlash('success', 'Der Produktstatus wurde geändert. Laufende Abos behalten ihre Preisversion.');
         } catch (\DomainException $exception) { $this->addFlash('danger', $exception->getMessage()); }
 
-        return $this->redirectToRoute('platform_billing_products');
+        return $this->redirectToRoute('platform_billing_products', $this->filterParameters($request));
+    }
+
+    #[Route('/platform/produkte/{publicId}/loeschen', name: 'platform_billing_product_delete', methods: ['POST'])]
+    public function delete(string $publicId, Request $request, BillingCatalogService $catalog): Response
+    {
+        if (!$this->isCsrfTokenValid('billing_product_delete_'.$publicId, $request->request->getString('_csrf_token'))) { throw $this->createAccessDeniedException(); }
+        try {
+            $catalog->deleteProduct($this->admin(), $publicId, $request->getClientIp() ?? '');
+            $this->addFlash('success', 'Das unbenutzte Produkt und seine Preisversionen wurden gelöscht.');
+        } catch (\DomainException $exception) {
+            $this->addFlash('danger', $exception->getMessage());
+        }
+
+        return $this->redirectToRoute('platform_billing_products', $this->filterParameters($request));
     }
 
     #[Route('/platform/module/{code}/{action}', name: 'platform_billing_module_action', requirements: ['action' => 'aktivieren|deaktivieren'], methods: ['POST'])]
@@ -72,5 +88,11 @@ final class PlatformBillingCatalogController extends AbstractController
         if (!$admin instanceof PlatformAdmin) { throw $this->createAccessDeniedException(); }
 
         return $admin;
+    }
+
+    /** @return array<string, int> */
+    private function filterParameters(Request $request): array
+    {
+        return $request->query->getBoolean('mit_deaktivierten') ? ['mit_deaktivierten' => 1] : [];
     }
 }

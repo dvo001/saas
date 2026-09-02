@@ -62,6 +62,30 @@ final class BillingApplicationTest extends TestCase
         self::assertStringContainsString("name: 'tenant_billing_addon'", $controller);
     }
 
+    public function testOnlyUnusedProductsCanBeDeletedByPlatformAdmin(): void
+    {
+        $service = $this->source('src/Core/Application/Billing/BillingCatalogService.php');
+        self::assertStringContainsString('public function deleteProduct(', $service);
+        self::assertStringContainsString('subscription_modules smod', $service);
+        self::assertStringContainsString('invoice_lines il', $service);
+        self::assertStringContainsString('billing.product.deleted', $service);
+        self::assertStringContainsString('Deaktivieren Sie es stattdessen.', $service);
+
+        $controller = $this->source('src/Core/Presentation/Web/Controller/Platform/PlatformBillingCatalogController.php');
+        self::assertStringContainsString("name: 'platform_billing_product_delete'", $controller);
+    }
+
+    public function testInactiveProductsAreHiddenUnlessExplicitlyRequested(): void
+    {
+        $service = $this->source('src/Core/Application/Billing/BillingCatalogService.php');
+        self::assertStringContainsString('products(bool $includeInactive = false)', $service);
+        self::assertStringContainsString(':include_inactive = 1 OR bp.active = 1', $service);
+
+        $template = $this->source('templates/platform/billing/products.html.twig');
+        self::assertStringContainsString('Mit deaktivierten', $template);
+        self::assertStringContainsString('name="mit_deaktivierten"', $template);
+    }
+
     private function source(string $relative): string
     {
         $source = file_get_contents(dirname(__DIR__, 4).'/'.$relative);

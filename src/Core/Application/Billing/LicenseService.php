@@ -12,6 +12,14 @@ final readonly class LicenseService
 {
     public function __construct(private Connection $connection) {}
 
+    /** @return list<array{code: string, name: string}> */
+    public function licensedModules(Tenant $tenant): array
+    {
+        $modules = $this->connection->fetchAllAssociative('SELECT code, name FROM sport_modules WHERE active = 1 ORDER BY name');
+
+        return array_values(array_filter($modules, fn (array $module): bool => $this->isLicensed($tenant, (string) $module['code'])));
+    }
+
     public function isLicensed(Tenant $tenant, string $moduleCode, ?\DateTimeImmutable $now = null): bool
     {
         $tenantId = $tenant->getId() ?? throw new \LogicException('Missing tenant id.');
