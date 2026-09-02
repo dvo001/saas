@@ -33,6 +33,35 @@ final class BillingApplicationTest extends TestCase
         self::assertStringContainsString('TcPdfOutput', $service);
     }
 
+    public function testModuleActivationRequiresCurrentPricingAndCoverageIsVisible(): void
+    {
+        $service = $this->source('src/Core/Application/Billing/BillingCatalogService.php');
+        self::assertStringContainsString('priced_product_count', $service);
+        self::assertStringContainsString("bp.product_type = 'sport_module' AND bp.active = 1", $service);
+        self::assertStringContainsString('pv.valid_from <= UTC_TIMESTAMP()', $service);
+        self::assertStringContainsString('kann erst aktiviert werden', $service);
+        self::assertStringContainsString('Das letzte aktuell bepreiste Produkt', $service);
+
+        $template = $this->source('templates/platform/billing/products.html.twig');
+        foreach (['Produkt fehlt', 'Produkt deaktiviert', 'Preis fehlt', 'Preis erst zukünftig gültig', 'Buchbar'] as $status) {
+            self::assertStringContainsString($status, $template);
+        }
+    }
+
+    public function testRunningSubscriptionCanReceiveFullPriceAddOnUntilCommonEnd(): void
+    {
+        $service = $this->source('src/Core/Application/Billing/SubscriptionBillingService.php');
+        self::assertStringContainsString('public function addOn(', $service);
+        self::assertStringContainsString("'module_role' => 'addon'", $service);
+        self::assertStringContainsString('policy->addOnEnd(', $service);
+        self::assertStringContainsString("'full_price' => true", $service);
+        self::assertStringContainsString('Dieses Sportmodul ist im laufenden Abo bereits enthalten.', $service);
+        self::assertStringContainsString("status IN ('active', 'cancelled')", $service);
+
+        $controller = $this->source('src/Core/Presentation/Web/Controller/Tenant/TenantBillingController.php');
+        self::assertStringContainsString("name: 'tenant_billing_addon'", $controller);
+    }
+
     private function source(string $relative): string
     {
         $source = file_get_contents(dirname(__DIR__, 4).'/'.$relative);

@@ -25,7 +25,12 @@ final class TenantBillingController extends AbstractController
     public function index(Request $request, TenantContext $context, SubscriptionBillingService $billing): Response
     {
         $actor = $this->actor();
-        return $this->render('tenant/billing.html.twig', ['tenant' => $context->get(), 'billing' => $billing->overview($context->get()), 'catalogue' => $billing->catalogue(), 'billing_reauthenticated' => $this->sensitiveActions->isRecent($actor, $request->getSession())]);
+        $overview = $billing->overview($context->get());
+        $catalogue = $billing->catalogue();
+        $licensedModuleCodes = array_column($overview['modules'], 'code');
+        $availableAddons = array_values(array_filter($catalogue['modules'], static fn (array $module): bool => !in_array($module['module_code'], $licensedModuleCodes, true)));
+
+        return $this->render('tenant/billing.html.twig', ['tenant' => $context->get(), 'billing' => $overview, 'catalogue' => $catalogue, 'available_addons' => $availableAddons, 'billing_reauthenticated' => $this->sensitiveActions->isRecent($actor, $request->getSession())]);
     }
 
     #[Route('/v/{slug}/abrechnung/bestaetigen', name: 'tenant_billing_reauthenticate', methods: ['POST'])]
@@ -56,6 +61,22 @@ final class TenantBillingController extends AbstractController
         $this->csrf($request, 'billing_book');
         try { $actor = $this->actor(); $this->sensitiveActions->requireRecent($actor, $request->getSession()); $modules = array_values(array_map('strval', $request->request->all('modules'))); $billing->book($actor, $request->request->getString('main_product'), $modules, $request->request->getString('coupon') ?: null, $request->getClientIp() ?? ''); $this->addFlash('success', 'Das Jahresabo wurde freigeschaltet und die Rechnung erstellt.'); }
         catch (\DomainException $e) { $this->addFlash('danger', $e->getMessage()); }
+        return $this->redirectToRoute('tenant_billing', ['slug' => $context->get()->getSlug()]);
+    }
+
+    #[Route('/v/{slug}/abrechnung/zusatzmodul', name: 'tenant_billing_addon', methods: ['POST'])]
+    public function addOn(Request $request, TenantContext $context, SubscriptionBillingService $billing): Response
+    {
+        $this->csrf($request, 'billing_addon');
+        try {
+            $actor = $this->actor();
+            $this->sensitiveActions->requireRecent($actor, $request->getSession());
+            $billing->addOn($actor, $request->request->getString('module_product'), $request->getClientIp() ?? '');
+            $this->addFlash('success', 'Das Zusatzmodul wurde bis zum Laufzeitende freigeschaltet und die Rechnung erstellt.');
+        } catch (\DomainException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
         return $this->redirectToRoute('tenant_billing', ['slug' => $context->get()->getSlug()]);
     }
 

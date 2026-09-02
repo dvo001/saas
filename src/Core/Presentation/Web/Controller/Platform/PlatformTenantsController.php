@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Core\Presentation\Web\Controller\Platform;
 
+use App\Core\Application\Platform\TenantAdministrationService;
 use App\Core\Infrastructure\Doctrine\Entity\PlatformAdmin;
 use App\Core\Infrastructure\Doctrine\Repository\TenantRepository;
 use App\Core\Infrastructure\Support\SupportSessionService;
@@ -20,6 +21,25 @@ final class PlatformTenantsController extends AbstractController
         return $this->render('platform/admin/tenants.html.twig', [
             'tenants' => $tenants->findForPlatformAdministration(),
         ]);
+    }
+
+    #[Route('/platform/vereine/{publicId}/freischalten', name: 'platform_tenant_activate', methods: ['POST'])]
+    public function activate(string $publicId, Request $request, TenantRepository $tenants, TenantAdministrationService $administration): Response
+    {
+        $admin = $this->getUser();
+        if (!$admin instanceof PlatformAdmin || !$this->isCsrfTokenValid('tenant_activate_'.$publicId, $request->request->getString('_csrf_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $tenant = $tenants->findByPublicId($publicId) ?? throw $this->createNotFoundException('Verein nicht gefunden.');
+        try {
+            $administration->activatePendingRegistration($admin, $tenant, $request->request->getString('reason'), $request->getClientIp() ?? '');
+            $this->addFlash('success', 'Der Verein wurde freigeschaltet; die 14-tägige Testphase läuft ab jetzt.');
+        } catch (\DomainException $exception) {
+            $this->addFlash('danger', $exception->getMessage());
+        }
+
+        return $this->redirectToRoute('platform_tenants');
     }
 
     #[Route('/platform/vereine/{publicId}/support', name: 'platform_tenant_support', methods: ['GET', 'POST'])]

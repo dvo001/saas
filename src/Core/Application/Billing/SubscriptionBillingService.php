@@ -164,6 +164,53 @@ final readonly class SubscriptionBillingService
         return $invoicePublicId;
     }
 
+    public function addOn(TenantUser $actor, string $moduleProductPublicId, string $ip): string
+    {
+        $this->requireBillingRole($actor);
+        $tenant = $actor->getTenant();
+        $tenantId = $tenant->getId() ?? throw new \LogicException('Missing tenant id.');
+        $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+
+        $invoicePublicId = $this->connection->transactional(function (Connection $db) use ($tenantId, $moduleProductPublicId, $now): string {
+            $subscription = $db->fetchAssociative("SELECT id, ends_at FROM subscriptions WHERE tenant_id = :tenant AND status IN ('active', 'cancelled') AND ends_at > :now ORDER BY ends_at DESC LIMIT 1 FOR UPDATE", ['tenant' => $tenantId, 'now' => $now->format('Y-m-d H:i:s')]);
+            if ($subscription === false) {
+                throw new \DomainException('Ein Zusatzmodul benötigt ein laufendes Hauptabo.');
+            }
+            $profile = $db->fetchAssociative('SELECT * FROM billing_profiles WHERE tenant_id = :tenant AND invoice_email_confirmed = 1 FOR UPDATE', ['tenant' => $tenantId]);
+            if ($profile === false) {
+                throw new \DomainException('Vor der Buchung werden vollständige, bestätigte Rechnungsdaten benötigt.');
+            }
+            $module = $this->pricedProduct($db, $moduleProductPublicId, 'sport_module', $now);
+            if ($db->fetchOne('SELECT 1 FROM subscription_modules WHERE tenant_id = :tenant AND subscription_id = :subscription AND module_id = :module FOR UPDATE', ['tenant' => $tenantId, 'subscription' => $subscription['id'], 'module' => $module['module_id']]) !== false) {
+                throw new \DomainException('Dieses Sportmodul ist im laufenden Abo bereits enthalten.');
+            }
+
+            $endsAt = $this->policy->addOnEnd($now, new \DateTimeImmutable((string) $subscription['ends_at'], new \DateTimeZone('UTC')));
+            $db->insert('subscription_modules', [
+                'tenant_id' => $tenantId, 'subscription_id' => $subscription['id'], 'module_id' => $module['module_id'],
+                'price_version_id' => $module['price_id'], 'module_role' => 'addon', 'status' => 'active',
+                'starts_at' => $now->format('Y-m-d H:i:s'), 'ends_at' => $endsAt->format('Y-m-d H:i:s'),
+                'renew' => 1, 'archive_until' => null, 'created_at' => $now->format('Y-m-d H:i:s'),
+            ]);
+
+            $vatRate = (int) $this->settings->get('billing.vat_basis_points', 0);
+            $totals = $this->calculator->calculate([new Money((int) $module['amount_minor'], (string) $module['currency'])], 0, $vatRate);
+            $invoicePublicId = Uuid::v7()->toRfc4122();
+            $invoiceNumber = $this->nextInvoiceNumber($db, $now, 'invoice');
+            $snapshot = ['club_name' => $profile['club_name'], 'address_line' => $profile['address_line'], 'postal_code' => $profile['postal_code'], 'city' => $profile['city'], 'country_code' => $profile['country_code'], 'invoice_email' => $profile['invoice_email'], 'contact_name' => $profile['contact_name'], 'recipient' => $profile['recipient'], 'order_number' => $profile['order_number'], 'cost_center' => $profile['cost_center'], 'invoice_reference' => $profile['invoice_reference'], 'payment_term_days' => 30, 'dunning_term_days' => 30];
+            $dueAt = $now->add(new \DateInterval('P30D'));
+            $db->insert('invoices', ['tenant_id' => $tenantId, 'public_id' => $invoicePublicId, 'subscription_id' => $subscription['id'], 'coupon_id' => null, 'document_type' => 'invoice', 'invoice_number' => $invoiceNumber, 'status' => 'open', 'currency' => $totals->currency, 'subtotal_minor' => $totals->subtotalMinor, 'discount_minor' => 0, 'vat_rate_basis_points' => $totals->vatRateBasisPoints, 'vat_minor' => $totals->vatMinor, 'total_minor' => $totals->totalMinor, 'billing_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR), 'qr_payload' => null, 'pdf_storage_path' => null, 'issued_at' => $now->format('Y-m-d H:i:s'), 'due_at' => $dueAt->format('Y-m-d H:i:s'), 'reminder_due_at' => $dueAt->add(new \DateInterval('P30D'))->format('Y-m-d H:i:s'), 'paid_at' => null, 'cancelled_at' => null, 'retention_until' => $now->add(new \DateInterval('P10Y'))->format('Y-m-d H:i:s'), 'created_at' => $now->format('Y-m-d H:i:s')]);
+            $invoiceId = (int) $db->lastInsertId();
+            $db->insert('invoice_lines', ['tenant_id' => $tenantId, 'invoice_id' => $invoiceId, 'price_version_id' => $module['price_id'], 'position' => 1, 'description' => $module['name'], 'quantity' => 1, 'unit_price_minor' => $module['amount_minor'], 'line_total_minor' => $module['amount_minor'], 'service_starts_at' => $now->format('Y-m-d H:i:s'), 'service_ends_at' => $endsAt->format('Y-m-d H:i:s')]);
+
+            return $invoicePublicId;
+        });
+        $this->audit->log('subscription.addon_booked', 'invoice', $invoicePublicId, $tenant, $actor, ['module_product' => $moduleProductPublicId, 'full_price' => true], $ip);
+        $this->delivery->deliver($tenantId, $invoicePublicId);
+
+        return $invoicePublicId;
+    }
+
     public function cancel(TenantUser $actor, string $ip): void
     {
         $this->requireOwner($actor);

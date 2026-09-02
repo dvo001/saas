@@ -34,7 +34,26 @@ final readonly class BillingCatalogService
     /** @return list<array<string, mixed>> */
     public function modules(): array
     {
-        return $this->connection->fetchAllAssociative('SELECT code, name, complexity, active FROM sport_modules ORDER BY name');
+        return $this->connection->fetchAllAssociative(<<<'SQL'
+            SELECT sm.code, sm.name, sm.complexity, sm.active,
+                   COUNT(bp.id) AS product_count,
+                   COALESCE(SUM(CASE WHEN bp.active = 1 THEN 1 ELSE 0 END), 0) AS active_product_count,
+                   COALESCE(SUM(CASE WHEN bp.active = 1 AND EXISTS (
+                       SELECT 1 FROM price_versions pv
+                       WHERE pv.billing_product_id = bp.id AND pv.valid_from <= UTC_TIMESTAMP()
+                   ) THEN 1 ELSE 0 END), 0) AS priced_product_count,
+                   COALESCE(SUM(CASE WHEN bp.active = 1 AND EXISTS (
+                       SELECT 1 FROM price_versions pv
+                       WHERE pv.billing_product_id = bp.id AND pv.valid_from > UTC_TIMESTAMP()
+                   ) AND NOT EXISTS (
+                       SELECT 1 FROM price_versions current_pv
+                       WHERE current_pv.billing_product_id = bp.id AND current_pv.valid_from <= UTC_TIMESTAMP()
+                   ) THEN 1 ELSE 0 END), 0) AS future_price_count
+            FROM sport_modules sm
+            LEFT JOIN billing_products bp ON bp.module_id = sm.id AND bp.product_type = 'sport_module'
+            GROUP BY sm.id, sm.code, sm.name, sm.complexity, sm.active
+            ORDER BY sm.name
+            SQL);
     }
 
     public function createProduct(PlatformAdmin $admin, string $key, string $name, string $type, ?string $moduleCode, string $ip): void
@@ -98,6 +117,37 @@ final readonly class BillingCatalogService
 
     public function setProductActive(PlatformAdmin $admin, string $publicId, bool $active, string $ip): void
     {
+        if (!$active) {
+            $product = $this->connection->fetchAssociative(<<<'SQL'
+                SELECT bp.id, bp.module_id, sm.active AS module_active,
+                       EXISTS (
+                           SELECT 1 FROM price_versions current_pv
+                           WHERE current_pv.billing_product_id = bp.id AND current_pv.valid_from <= UTC_TIMESTAMP()
+                       ) AS has_current_price
+                FROM billing_products bp
+                LEFT JOIN sport_modules sm ON sm.id = bp.module_id
+                WHERE bp.public_id = :public_id
+                SQL, ['public_id' => $publicId]);
+            if ($product === false) {
+                throw new \DomainException('Das Produkt wurde nicht gefunden.');
+            }
+            if ($product['module_id'] !== null && (bool) $product['module_active'] && (bool) $product['has_current_price'] && $this->connection->fetchOne(<<<'SQL'
+                SELECT 1
+                FROM billing_products other_bp
+                INNER JOIN price_versions pv ON pv.id = (
+                    SELECT p.id FROM price_versions p
+                    WHERE p.billing_product_id = other_bp.id AND p.valid_from <= UTC_TIMESTAMP()
+                    ORDER BY p.valid_from DESC, p.id DESC LIMIT 1
+                )
+                WHERE other_bp.module_id = :module_id
+                  AND other_bp.product_type = 'sport_module'
+                  AND other_bp.active = 1
+                  AND other_bp.id <> :product_id
+                LIMIT 1
+                SQL, ['module_id' => $product['module_id'], 'product_id' => $product['id']]) === false) {
+                throw new \DomainException('Das letzte aktuell bepreiste Produkt eines aktiven Sportmoduls kann nicht deaktiviert werden. Deaktivieren Sie zuerst das Sportmodul.');
+            }
+        }
         if ($this->connection->update('billing_products', ['active' => $active ? 1 : 0], ['public_id' => $publicId]) === 0) {
             throw new \DomainException('Das Produkt wurde nicht gefunden.');
         }
@@ -106,6 +156,20 @@ final readonly class BillingCatalogService
 
     public function setModuleActive(PlatformAdmin $admin, string $code, bool $active, string $ip): void
     {
+        if ($active && $this->connection->fetchOne(<<<'SQL'
+            SELECT 1
+            FROM sport_modules sm
+            INNER JOIN billing_products bp ON bp.module_id = sm.id AND bp.product_type = 'sport_module' AND bp.active = 1
+            INNER JOIN price_versions pv ON pv.id = (
+                SELECT p.id FROM price_versions p
+                WHERE p.billing_product_id = bp.id AND p.valid_from <= UTC_TIMESTAMP()
+                ORDER BY p.valid_from DESC, p.id DESC LIMIT 1
+            )
+            WHERE sm.code = :code
+            LIMIT 1
+            SQL, ['code' => $code]) === false) {
+            throw new \DomainException('Das Sportmodul kann erst aktiviert werden, wenn ein aktives Produkt mit aktuell gültigem Preis vorhanden ist.');
+        }
         if ($this->connection->update('sport_modules', ['active' => $active ? 1 : 0, 'updated_at' => gmdate('Y-m-d H:i:s')], ['code' => $code]) === 0) { throw new \DomainException('Das Sportmodul wurde nicht gefunden.'); }
         $this->audit->logPlatform($active ? 'billing.module.activated' : 'billing.module.deactivated', 'sport_module', $code, $admin, [], null, $ip);
     }
