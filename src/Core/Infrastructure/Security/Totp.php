@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Core\Infrastructure\Security;
 
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\Writer\SvgWriter;
+
 final class Totp
 {
     private const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -30,6 +34,18 @@ final class Totp
         $label = rawurlencode($issuer.':'.$account);
 
         return sprintf('otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=6&period=30', $label, $secret, rawurlencode($issuer));
+    }
+
+    public function qrCodeDataUri(string $provisioningUri): string
+    {
+        return (new Builder(
+            writer: new SvgWriter(),
+            writerOptions: [SvgWriter::WRITER_OPTION_EXCLUDE_XML_DECLARATION => true],
+            data: $provisioningUri,
+            errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+            size: 280,
+            margin: 12,
+        ))->build()->getDataUri();
     }
 
     public function verify(string $secret, string $code, ?int $timestamp = null): bool

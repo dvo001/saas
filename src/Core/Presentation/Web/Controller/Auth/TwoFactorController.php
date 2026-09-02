@@ -53,9 +53,12 @@ final class TwoFactorController extends AbstractController
             $error = 'Der eingegebene Code ist nicht gültig.';
         }
 
+        $provisioningUri = $totp->provisioningUri($secret, $user->getEmail(), 'Vereinssport Schweiz');
+
         return $this->render('auth/two_factor_setup.html.twig', [
             'secret' => $secret,
-            'provisioning_uri' => $totp->provisioningUri($secret, $user->getEmail(), 'Vereinssport Schweiz'),
+            'provisioning_uri' => $provisioningUri,
+            'qr_code_data_uri' => $totp->qrCodeDataUri($provisioningUri),
             'error' => $error,
         ]);
     }

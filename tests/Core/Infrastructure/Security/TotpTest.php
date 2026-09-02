@@ -25,4 +25,14 @@ final class TotpTest extends TestCase
         self::assertStringContainsString('secret=ABCDEF234567', $uri);
         self::assertStringContainsString('period=30', $uri);
     }
+
+    public function testCreatesSelfContainedSvgQrCodeForProvisioningUri(): void
+    {
+        $totp = new Totp();
+        $uri = $totp->provisioningUri('ABCDEF234567', 'owner@example.ch', 'Vereinssport Schweiz');
+        $qrCode = $totp->qrCodeDataUri($uri);
+
+        self::assertStringStartsWith('data:image/svg+xml;base64,', $qrCode);
+        self::assertStringContainsString('<svg', (string) base64_decode(substr($qrCode, strlen('data:image/svg+xml;base64,')), true));
+    }
 }

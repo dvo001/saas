@@ -5,8 +5,11 @@
     <div class="card shadow-sm border-0"><div class="card-body p-4 p-md-5">
         <p class="eyebrow">Kontoschutz</p>
         <h1 class="h3">Zwei-Faktor-Authentisierung einrichten</h1>
-        <p class="text-body-secondary">Hinterlegen Sie den Schlüssel in einer TOTP-kompatiblen Authenticator-App und bestätigen Sie den ersten Code.</p>
+        <p class="text-body-secondary">Scannen Sie den QR-Code mit einer TOTP-kompatiblen Authenticator-App und bestätigen Sie den ersten Code.</p>
         {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+        <div class="text-center mb-4">
+            <img src="{{ qr_code_data_uri }}" width="280" height="280" alt="QR-Code zur Einrichtung der Zwei-Faktor-Authentisierung">
+        </div>
         <dl class="mb-4"><dt>Geheimer Schlüssel</dt><dd><code class="user-select-all">{{ secret }}</code></dd><dt>Einrichtungs-URI</dt><dd class="text-break"><code class="user-select-all">{{ provisioning_uri }}</code></dd></dl>
         <form method="post">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('totp_setup') }}">

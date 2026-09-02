@@ -48,7 +48,14 @@ final class PlatformAuthController extends AbstractController
             $error = 'Der eingegebene Code ist nicht gültig.';
         }
 
-        return $this->render('platform/auth/two_factor_setup.html.twig', ['secret' => $secret, 'uri' => $totp->provisioningUri($secret, $admin->getEmail(), 'Vereinssport Schweiz Platform'), 'error' => $error]);
+        $provisioningUri = $totp->provisioningUri($secret, $admin->getEmail(), 'Vereinssport Schweiz Platform');
+
+        return $this->render('platform/auth/two_factor_setup.html.twig', [
+            'secret' => $secret,
+            'uri' => $provisioningUri,
+            'qr_code_data_uri' => $totp->qrCodeDataUri($provisioningUri),
+            'error' => $error,
+        ]);
     }
 
     #[Route('/platform/2fa', name: 'platform_2fa_verify', methods: ['GET', 'POST'])]
