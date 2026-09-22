@@ -30,6 +30,7 @@ final class RunningEventController extends AbstractController
                     'category' => $categories->create($user, $id, $request->request->getString('name'), $request->request->getInt('year_from'), $request->request->getInt('year_to'), $request->request->getString('gender'), $request->getClientIp() ?? ''),
                     'category_update' => $categories->update($user, $id, $request->request->getString('category_id'), $request->request->getString('name'), $request->request->getInt('year_from'), $request->request->getInt('year_to'), $request->request->getString('gender'), $request->request->getInt('lock_version'), $request->getClientIp() ?? ''),
                     'start_numbers' => $competition->saveStartNumbers($user, $id, $request->request->all('numbers'), $request->request->all('number_versions'), $request->getClientIp() ?? ''),
+                    'participant_update' => $competition->updateParticipant($user, $id, $request->request->all(), $request->getClientIp() ?? ''),
                     'qualification' => $competition->saveQualification($user, $id, $request->request->all('times'), $request->request->all('qualification_versions'), $request->getClientIp() ?? ''),
                     'finalists' => $competition->confirmFinalists($user, $id, array_values(array_map('strval', $request->request->all('finalists'))), $request->getClientIp() ?? ''),
                     'reset_finalists' => $competition->resetFinalists($user, $id, $request->request->getString('reason'), $request->getClientIp() ?? ''),

@@ -25,7 +25,7 @@ final readonly class RunningCompetitionService
         $settings = $this->settings((int) $event['id']);
         $participants = $this->connection->fetchAllAssociative(<<<'SQL'
             SELECT p.id, p.public_id, p.first_name, p.last_name, p.birth_year, p.gender,
-                   r.start_number, r.category_id, r.finalist_confirmed, r.final_start_order, r.lock_version, c.name AS category_name
+                   p.lock_version AS participant_lock_version, r.start_number, r.category_id, r.finalist_confirmed, r.final_start_order, r.lock_version, c.name AS category_name
             FROM event_participants p JOIN running_participant_data r ON r.participant_id = p.id
             LEFT JOIN running_categories c ON c.id = r.category_id
             WHERE p.tenant_id = :tenant AND p.event_id = :event
@@ -39,14 +39,40 @@ final readonly class RunningCompetitionService
         $finalRows = $this->connection->fetchAllAssociative('SELECT p.public_id, f.time_units, f.status, f.lock_version FROM event_participants p JOIN running_final_results f ON f.participant_id = p.id WHERE p.tenant_id = :tenant AND p.event_id = :event', ['tenant' => $event['tenant_id'], 'event' => $event['id']]);
         $finalInputs = []; $finalVersions = []; foreach ($finalRows as $row) { $finalInputs[(string) $row['public_id']] = $row['status'] === 'valid' && $row['time_units'] !== null ? TimeValue::format((int) $row['time_units'], TimePrecision::from((string) $settings['time_precision'])) : strtoupper((string) $row['status']); $finalVersions[(string) $row['public_id']] = (int) $row['lock_version']; }
         $qualification = $this->qualificationRankings($event); $proposed = [];
+        $qualificationById = [];
+        foreach ($qualification as $rows) { foreach ($rows as $row) { $qualificationById[(string) $row['id']] = $row; } }
         foreach ($qualification as $rows) { foreach ($this->ranking->finalists($rows, (int) $settings['finalists_per_category']) as $participantPublicId) { $proposed[(string) $participantPublicId] = true; } }
         $finalists = []; foreach ($participants as $participant) { if (!empty($participant['finalist_confirmed'])) { $finalists[(string) $participant['category_name']][] = $participant; } }
-        return ['event' => $event, 'settings' => $settings, 'participants' => $participants, 'participants_by_id' => $participantsByPublicId, 'inputs' => $qualificationInputs, 'qualification_versions' => $qualificationVersions, 'final_inputs' => $finalInputs, 'final_versions' => $finalVersions, 'qualification' => $qualification, 'proposed_finalists' => $proposed, 'finalists' => $finalists, 'finals' => $this->finalRankings($event), 'revision' => $this->revisionForEvent($event)];
+        return ['event' => $event, 'settings' => $settings, 'participants' => $participants, 'participants_by_id' => $participantsByPublicId, 'inputs' => $qualificationInputs, 'qualification_versions' => $qualificationVersions, 'final_inputs' => $finalInputs, 'final_versions' => $finalVersions, 'qualification' => $qualification, 'qualification_by_id' => $qualificationById, 'proposed_finalists' => $proposed, 'finalists' => $finalists, 'finals' => $this->finalRankings($event), 'revision' => $this->revisionForEvent($event)];
     }
 
     public function revision(TenantUser $actor, string $publicId): string
     {
         return $this->revisionForEvent($this->events->event($actor, $publicId));
+    }
+
+    /** @param array<string, mixed> $input */
+    public function updateParticipant(TenantUser $actor, string $publicId, array $input, string $ip): void
+    {
+        $event = $this->events->eventForDataEntry($actor, $publicId);
+        $participantId = (string) ($input['participant_id'] ?? '');
+        $firstName = trim((string) ($input['first_name'] ?? ''));
+        $lastName = trim((string) ($input['last_name'] ?? ''));
+        $year = filter_var($input['birth_year'] ?? null, FILTER_VALIDATE_INT);
+        if (mb_strlen($firstName) < 1 || mb_strlen($firstName) > 100 || mb_strlen($lastName) < 1 || mb_strlen($lastName) > 100 || $year === false || $year < 1900 || $year > 2100) {
+            throw new \DomainException('Vor- und Nachname müssen 1 bis 100 Zeichen enthalten; der Jahrgang muss zwischen 1900 und 2100 liegen.');
+        }
+        $this->connection->transactional(function (Connection $db) use ($event, $participantId, $firstName, $lastName, $year, $input): void {
+            $confirmed = $db->fetchOne('SELECT finalists_confirmed_at FROM running_event_settings WHERE tenant_id = :tenant AND event_id = :event FOR UPDATE', ['tenant' => $event['tenant_id'], 'event' => $event['id']]);
+            $row = $db->fetchAssociative('SELECT id, birth_year, lock_version FROM event_participants WHERE tenant_id = :tenant AND event_id = :event AND public_id = :participant FOR UPDATE', ['tenant' => $event['tenant_id'], 'event' => $event['id'], 'participant' => $participantId]);
+            if ($row === false) { throw new \DomainException('Teilnehmer nicht gefunden.'); }
+            if ($confirmed !== null && $confirmed !== false && (int) $row['birth_year'] !== $year) { throw new \DomainException('Der Jahrgang ist nach Bestätigung der Finalisten gesperrt.'); }
+            $expected = (int) ($input['lock_version'] ?? 0);
+            if ((int) $row['lock_version'] !== $expected) { throw new \DomainException('Der Teilnehmer wurde gleichzeitig geändert. Bitte neu laden.'); }
+            $db->update('event_participants', ['first_name' => $firstName, 'last_name' => $lastName, 'birth_year' => $year, 'updated_at' => gmdate('Y-m-d H:i:s'), 'lock_version' => $expected + 1], ['id' => $row['id'], 'tenant_id' => $event['tenant_id'], 'event_id' => $event['id'], 'lock_version' => $expected]);
+        });
+        $this->categories->synchronizeParticipants($event);
+        $this->audit->log('running.participant_changed', 'event_participant', $participantId, $actor->getTenant(), $actor, ['event' => $publicId], $ip);
     }
 
     /** @param array<string, mixed> $input */
@@ -197,7 +223,7 @@ final readonly class RunningCompetitionService
     }
 
     /** @return array<string, mixed> */ private function settings(int $eventId): array { $row = $this->connection->fetchAssociative('SELECT * FROM running_event_settings WHERE event_id = :event', ['event' => $eventId]); return $row === false ? throw new \LogicException('Laufkonfiguration fehlt.') : $row; }
-    /** @param array<string, mixed> $event */ private function revisionForEvent(array $event): string { $parameters = ['tenant' => $event['tenant_id'], 'event' => $event['id']]; $parts = [$this->connection->fetchAssociative('SELECT qualification_runs, finalists_per_category, time_precision, final_enabled, finalists_confirmed_at FROM running_event_settings WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM running_categories WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(CRC32(CONCAT_WS(\':\', participant_id, category_id, start_number, finalist_confirmed, final_start_order))), 0) AS checksum FROM running_participant_data WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM running_qualification_results WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM running_final_results WHERE tenant_id = :tenant AND event_id = :event', $parameters)]; return hash('sha256', json_encode($parts, JSON_THROW_ON_ERROR)); }
+    /** @param array<string, mixed> $event */ private function revisionForEvent(array $event): string { $parameters = ['tenant' => $event['tenant_id'], 'event' => $event['id']]; $parts = [$this->connection->fetchAssociative('SELECT qualification_runs, finalists_per_category, time_precision, final_enabled, finalists_confirmed_at FROM running_event_settings WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM running_categories WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(CRC32(CONCAT_WS(\':\', participant_id, category_id, start_number, finalist_confirmed, final_start_order))), 0) AS checksum FROM running_participant_data WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM running_qualification_results WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM running_final_results WHERE tenant_id = :tenant AND event_id = :event', $parameters), $this->connection->fetchAssociative('SELECT COUNT(*) AS amount, COALESCE(SUM(lock_version), 0) AS versions FROM event_participants WHERE tenant_id = :tenant AND event_id = :event', $parameters)]; return hash('sha256', json_encode($parts, JSON_THROW_ON_ERROR)); }
     /** @param array<string, mixed> $event */ private function participantId(array $event, string $publicId, bool $finalist = false): int { $sql = 'SELECT p.id FROM event_participants p'.($finalist ? ' JOIN running_participant_data d ON d.participant_id = p.id AND d.finalist_confirmed = 1' : '').' WHERE p.tenant_id = :tenant AND p.event_id = :event AND p.public_id = :id'; $id = $this->connection->fetchOne($sql, ['tenant' => $event['tenant_id'], 'event' => $event['id'], 'id' => $publicId]); return $id === false ? throw new \DomainException('Teilnehmer nicht gefunden.') : (int) $id; }
     /** @return array{0: RunStatus, 1: ?int} */ private function parse(string $raw, TimePrecision $precision): array { $status = RunStatus::tryFrom(mb_strtolower(trim($raw))); return $status === null ? [RunStatus::Valid, TimeValue::parse($raw, $precision)] : [$status, null]; }
 }

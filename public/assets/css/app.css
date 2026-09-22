@@ -28,6 +28,15 @@ th { overflow-wrap: anywhere; }
     -webkit-overflow-scrolling: touch;
 }
 
+.running-ranking-table { table-layout: fixed; min-width: 720px; }
+.running-ranking-table th,
+.running-ranking-table td { overflow-wrap: break-word; }
+.running-ranking-table td:first-child,
+.running-ranking-table td:nth-child(n + 4) { font-variant-numeric: tabular-nums; }
+.running-ranking-table th:nth-child(n + 5),
+.running-ranking-table td:nth-child(n + 5) { text-align: right; }
+.running-ranking-table td:last-child { background: var(--bs-tertiary-bg); font-weight: 600; }
+
 :focus-visible {
     outline: .2rem solid color-mix(in srgb, var(--app-accent) 70%, white);
     outline-offset: .15rem;
